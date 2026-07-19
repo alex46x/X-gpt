@@ -35,6 +35,17 @@ docker run --rm -p 8000:8000 \
 `GET /healthz` is a process liveness check. `GET /readyz` succeeds only after a
 bundle is loaded and returns its fingerprint. `POST /v1/generate` and
 `POST /v1/chat` are stateless JSON APIs documented by the service OpenAPI schema.
+A fatal inference/runtime error keeps liveness available for diagnostics but
+fails readiness until the platform replaces the replica.
+
+After deployment, exercise the actual HTTP path with explicit workload-derived
+gates:
+
+```console
+genesis-load-test --url https://candidate.example/v1/generate \
+  --requests 100 --concurrency 4 --api-key "$GENESIS_API_KEY" \
+  --max-error-rate 0.01 --max-p95-milliseconds 2000
+```
 
 ## Security and scaling
 
@@ -50,3 +61,7 @@ show the process-local lock is the throughput bottleneck.
 
 The image is CPU-only because the committed PyTorch lock is CPU-only. A CUDA
 image requires a separately locked accelerator dependency set and GPU CI.
+
+See the [production runbook](../docs/runbook.md), [compatibility
+policy](../docs/compatibility.md), and [security policy](../SECURITY.md) before
+operating the service.

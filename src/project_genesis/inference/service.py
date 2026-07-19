@@ -89,6 +89,11 @@ class ServiceRuntime:
         self.generation_config = generation_config
         # ponytail: global lock; use process replicas or continuous batching at saturation.
         self.lock = threading.Lock()
+        self.failure: str | None = None
+
+    def mark_failed(self, error: BaseException) -> None:
+        """Fail readiness after an unexpected inference runtime error."""
+        self.failure = type(error).__name__
 
 
 class SamplingOptions(BaseModel):
@@ -272,6 +277,8 @@ def create_app(
             text = current.bundle.tokenizer.decode(result.generated_token_ids)
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
+        except (RuntimeError, FloatingPointError) as error:
+            _fail_runtime(current, error)
         return InferenceResponse(
             text=text,
             generated_token_ids=result.generated_token_ids,
@@ -289,9 +296,9 @@ def create_app(
                 status_code=400,
                 detail="chat messages must end with a user message",
             )
+        current = _runtime(request)
         try:
             conversation = Conversation(messages[:-1])
-            current = _runtime(request)
             config = _request_config(request, current.generation_config, body)
             with current.lock:
                 updated, result = generate_reply(
@@ -304,6 +311,8 @@ def create_app(
                 )
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
+        except (RuntimeError, FloatingPointError) as error:
+            _fail_runtime(current, error)
         return InferenceResponse(
             text=updated.messages[-1].content,
             generated_token_ids=result.generated_token_ids,
@@ -318,6 +327,8 @@ def _runtime(request: Request) -> ServiceRuntime:
     runtime: object = getattr(request.app.state, "runtime", None)
     if not isinstance(runtime, ServiceRuntime):
         raise HTTPException(status_code=503, detail="model is not loaded")
+    if runtime.failure is not None:
+        raise HTTPException(status_code=503, detail="inference runtime is unavailable")
     return runtime
 
 
@@ -372,6 +383,25 @@ def _positive_environment_integer(name: str, default: int) -> int:
     if value <= 0:
         raise ValueError(f"{name} must be a positive integer")
     return value
+
+
+def _fail_runtime(runtime: ServiceRuntime, error: BaseException) -> None:
+    runtime.mark_failed(error)
+    LOGGER.error(
+        json.dumps(
+            {
+                "event": "inference_runtime_failed",
+                "error_type": type(error).__name__,
+                "bundle_fingerprint": runtime.bundle.fingerprint,
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    )
+    raise HTTPException(
+        status_code=503,
+        detail="inference runtime failed",
+    ) from error
 
 
 def main() -> None:

@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Verify and release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: "0.11.29"
+          enable-cache: true
+
+      - name: Verify tag matches package version
+        shell: python
+        run: |
+          import os
+          import pathlib
+          import tomllib
+
+          version = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"]
+          tag = os.environ["GITHUB_REF_NAME"]
+          if tag != f"v{version}":
+              raise SystemExit(f"tag {tag!r} does not match package version {version!r}")
+
+      - name: Install locked dependencies
+        run: uv sync --locked --group dev
+
+      - name: Verify source
+        run: |
+          uv run --locked ruff format --check .
+          uv run --locked ruff check .
+          uv run --locked mypy src
+          uv run --locked pytest -W error
+
+      - name: Build release artifacts
+        run: |
+          uv build
+          sha256sum dist/* > dist/SHA256SUMS
+
+      - name: Attest release artifacts
+        uses: actions/attest@v4
+        with:
+          subject-path: "dist/*"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes

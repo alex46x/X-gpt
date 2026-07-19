@@ -6,14 +6,18 @@ from fastapi.testclient import TestClient
 from torch import Tensor, nn
 
 from project_genesis.inference import (
+    BundleProvenance,
     GenerationConfig,
     InferenceBundle,
     load_bundle,
     save_bundle,
+    versions_compatible,
 )
 from project_genesis.inference.service import ServiceRuntime, create_app
 from project_genesis.model import GPTDecoder, ModelConfig
 from project_genesis.tokenizer import ByteBPETokenizer, SpecialTokens, Vocabulary
+
+PROVENANCE = BundleProvenance("abc123", "run-7", "d" * 64)
 
 
 def _tokenizer() -> ByteBPETokenizer:
@@ -59,14 +63,25 @@ class ConstantModel(nn.Module):
         return logits
 
 
+class FailingModel(ConstantModel):
+    def forward(self, inputs: Tensor) -> Tensor:
+        raise RuntimeError("simulated device failure")
+
+
 def test_bundle_round_trip_and_tamper_detection(tmp_path: Path) -> None:
     destination = tmp_path / "bundle"
     model = _model()
-    fingerprint = save_bundle(destination, model, _tokenizer())
+    fingerprint = save_bundle(
+        destination,
+        model,
+        _tokenizer(),
+        provenance=PROVENANCE,
+    )
 
     loaded = load_bundle(destination)
 
     assert loaded.fingerprint == fingerprint
+    assert loaded.provenance == PROVENANCE
     assert loaded.tokenizer.fingerprint == _tokenizer().fingerprint
     for expected, actual in zip(
         model.parameters(),
@@ -83,10 +98,18 @@ def test_bundle_round_trip_and_tamper_detection(tmp_path: Path) -> None:
 
 def test_bundle_refuses_to_overwrite_existing_artifacts(tmp_path: Path) -> None:
     destination = tmp_path / "bundle"
-    save_bundle(destination, _model(), _tokenizer())
+    save_bundle(destination, _model(), _tokenizer(), provenance=PROVENANCE)
 
     with pytest.raises(FileExistsError):
-        save_bundle(destination, _model(), _tokenizer())
+        save_bundle(destination, _model(), _tokenizer(), provenance=PROVENANCE)
+
+
+def test_bundle_version_compatibility_policy() -> None:
+    assert versions_compatible("0.1.0", "0.1.9")
+    assert not versions_compatible("0.1.0", "0.2.0")
+    assert versions_compatible("1.2.0", "1.3.0")
+    assert not versions_compatible("1.2.0", "1.1.9")
+    assert not versions_compatible("1.2.0", "2.0.0")
 
 
 def test_http_health_auth_generation_chat_and_limits() -> None:
@@ -96,6 +119,7 @@ def test_http_health_auth_generation_chat_and_limits() -> None:
             _tokenizer(),
             "a" * 64,
             "0.1.0",
+            PROVENANCE,
         ),
         GenerationConfig(1, 0.0, 0, 1.0, 1.0, (69,), False),
     )
@@ -153,3 +177,26 @@ def test_deployment_image_is_non_root_and_health_checked() -> None:
     assert "USER genesis" in dockerfile
     assert "HEALTHCHECK" in dockerfile
     assert 'ENTRYPOINT ["genesis-serve"]' in dockerfile
+
+
+def test_fatal_inference_error_fails_readiness_without_exposing_details() -> None:
+    runtime = ServiceRuntime(
+        InferenceBundle(  # type: ignore[arg-type]
+            FailingModel(),
+            _tokenizer(),
+            "b" * 64,
+            "0.1.0",
+            PROVENANCE,
+        ),
+        GenerationConfig(1, 0.0, 0, 1.0, 1.0, (), False),
+    )
+
+    with TestClient(create_app(runtime)) as client:
+        failed = client.post("/v1/generate", json={"prompt": "x"})
+        readiness = client.get("/readyz")
+        health = client.get("/healthz")
+
+    assert failed.status_code == 503
+    assert failed.json() == {"detail": "inference runtime failed"}
+    assert readiness.status_code == 503
+    assert health.status_code == 200

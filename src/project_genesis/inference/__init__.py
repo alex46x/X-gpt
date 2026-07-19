@@ -1,9 +1,11 @@
 """Autoregressive decoder inference."""
 
 from project_genesis.inference.bundle import (
+    BundleProvenance,
     InferenceBundle,
     load_bundle,
     save_bundle,
+    versions_compatible,
 )
 from project_genesis.inference.config import (
     GenerationConfig,
@@ -18,6 +20,7 @@ from project_genesis.inference.generation import (
 
 __all__ = [
     "FinishReason",
+    "BundleProvenance",
     "GenerationConfig",
     "GenerationResult",
     "InferenceBundle",
@@ -26,4 +29,5 @@ __all__ = [
     "load_bundle",
     "sample_next_token",
     "save_bundle",
+    "versions_compatible",
 ]

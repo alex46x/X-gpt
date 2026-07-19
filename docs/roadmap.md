@@ -77,3 +77,24 @@ Status: complete.
 
 Scale tests, failure recovery, compatibility policy, artifact provenance,
 operational runbooks, and release automation based on measured deployment needs.
+
+Status: complete.
+
+The planned architecture roadmap is complete. Additional phases are selected
+from measured model quality and production behavior, not speculative scope.
+
+## Phase 12 - End-to-end experiment execution
+
+One atomic command composes source verification, preprocessing, tokenizer
+training, model training, evaluation, checkpointing, and inference bundle
+creation.
+
+Status: complete.
+
+## Phase 13 - Training preflight and capacity report
+
+Validate source splits, configuration compatibility, parameter count, schedule
+size, persistent training-state lower bounds, and requested-device availability
+without allocating model weights.
+
+Status: complete.

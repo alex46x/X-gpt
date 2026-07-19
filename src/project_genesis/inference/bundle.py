@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import pickle
+import re
 import shutil
 import tempfile
 from dataclasses import asdict, dataclass
@@ -21,11 +22,31 @@ from project_genesis.tokenizer import (
 )
 from project_genesis.utilities import atomic_write_text
 
-BUNDLE_SCHEMA_VERSION = "1.0.0"
+BUNDLE_SCHEMA_VERSION = "2.0.0"
 MODEL_CONFIG_FILE = "model.yaml"
 MODEL_WEIGHTS_FILE = "model.pt"
 TOKENIZER_FILE = "tokenizer.json"
 MANIFEST_FILE = "manifest.json"
+SEMANTIC_VERSION = re.compile(
+    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+    r"(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"
+)
+
+
+@dataclass(frozen=True, slots=True)
+class BundleProvenance:
+    """Source, training-run, and dataset identities for an inference bundle."""
+
+    source_revision: str
+    training_run_id: str
+    dataset_fingerprint: str
+
+    def __post_init__(self) -> None:
+        """Require explicit source/run identities and a SHA-256 dataset identity."""
+        if not self.source_revision.strip() or not self.training_run_id.strip():
+            raise ValueError("source revision and training run ID must be non-empty")
+        if not re.fullmatch(r"[0-9a-f]{64}", self.dataset_fingerprint):
+            raise ValueError("dataset fingerprint must be a lowercase SHA-256 digest")
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,12 +57,15 @@ class InferenceBundle:
     tokenizer: ByteBPETokenizer
     fingerprint: str
     project_version: str
+    provenance: BundleProvenance
 
 
 def save_bundle(
     path: Path,
     model: GPTDecoder,
     tokenizer: ByteBPETokenizer,
+    *,
+    provenance: BundleProvenance,
 ) -> str:
     """Atomically create an immutable inference bundle and return its fingerprint."""
     if model.config.vocab_size != len(tokenizer.vocabulary):
@@ -71,6 +95,9 @@ def save_bundle(
             "model_weights_sha256": _sha256(temporary / MODEL_WEIGHTS_FILE),
             "tokenizer_sha256": _sha256(temporary / TOKENIZER_FILE),
             "tokenizer_fingerprint": tokenizer.fingerprint,
+            "source_revision": provenance.source_revision,
+            "training_run_id": provenance.training_run_id,
+            "dataset_fingerprint": provenance.dataset_fingerprint,
         }
         fingerprint = _fingerprint(manifest)
         manifest["bundle_fingerprint"] = fingerprint
@@ -112,6 +139,12 @@ def load_bundle(
             raise ValueError("model and tokenizer vocabulary sizes do not match")
         if tokenizer.fingerprint != manifest["tokenizer_fingerprint"]:
             raise ValueError("tokenizer fingerprint does not match bundle manifest")
+        runtime_version = version("project-genesis")
+        if not versions_compatible(manifest["project_version"], runtime_version):
+            raise ValueError(
+                f"bundle project version {manifest['project_version']} is incompatible "
+                f"with runtime {runtime_version}"
+            )
         model = GPTDecoder(config).to(device)
         state = torch.load(
             root / MODEL_WEIGHTS_FILE,
@@ -125,6 +158,11 @@ def load_bundle(
             tokenizer=tokenizer,
             fingerprint=expected_fingerprint,
             project_version=manifest["project_version"],
+            provenance=BundleProvenance(
+                source_revision=manifest["source_revision"],
+                training_run_id=manifest["training_run_id"],
+                dataset_fingerprint=manifest["dataset_fingerprint"],
+            ),
         )
     except (
         OSError,
@@ -156,6 +194,9 @@ def _load_manifest(path: Path) -> dict[str, str]:
         "tokenizer_sha256",
         "tokenizer_fingerprint",
         "bundle_fingerprint",
+        "source_revision",
+        "training_run_id",
+        "dataset_fingerprint",
     }
     if (
         not isinstance(loaded, dict)
@@ -176,3 +217,20 @@ def _fingerprint(manifest: dict[str, str]) -> str:
 def _sha256(path: Path) -> str:
     with path.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def versions_compatible(bundle_version: str, runtime_version: str) -> bool:
+    """Return whether a runtime may load a bundle under the compatibility policy."""
+    bundle = _version_tuple(bundle_version)
+    runtime = _version_tuple(runtime_version)
+    if bundle[0] == 0:
+        return bundle[:2] == runtime[:2]
+    return bundle[0] == runtime[0] and runtime >= bundle
+
+
+def _version_tuple(value: str) -> tuple[int, int, int]:
+    matched = SEMANTIC_VERSION.fullmatch(value)
+    if matched is None:
+        raise ValueError(f"invalid semantic version: {value}")
+    major, minor, patch = matched.groups()
+    return int(major), int(minor), int(patch)

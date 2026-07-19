@@ -162,3 +162,25 @@ directory. Bundles verify model configuration, weights, tokenizer identity,
 package version, and checksums before serving. The stateless FastAPI service
 provides bounded authenticated generation/chat, liveness/readiness, structured
 request logs, and a non-root CPU container.
+
+Phase 11 requires bundle provenance and enforces semantic runtime compatibility.
+Fatal inference failures make a replica unready while preserving liveness for
+diagnostics. A dependency-free load probe supplies explicit error and latency
+gates. Tag-driven release automation verifies locked source, builds checksummed
+artifacts, and records GitHub build provenance. Compatibility, security,
+incident, recovery, and rollback contracts define the application boundary;
+platform-specific orchestration remains outside the repository.
+
+Phase 12 adds `project_genesis.experiment` as the top-level composition root.
+It follows the existing dependency direction while connecting all implemented
+subsystems into one atomic local run. Strict train/validation separation,
+vocabulary and context compatibility checks, deterministic batch replay, final
+evaluation, checkpointing, and provenance-bearing bundle creation are enforced
+before the run directory is published.
+
+Phase 13 adds `project_genesis.preflight` beside experiment orchestration. It
+validates source integrity and cross-configuration compatibility, constructs the
+configured decoder on PyTorch's storage-free meta device, and reports parameter,
+schedule, persistent-state, and requested-device facts before an expensive run.
+It intentionally does not predict activation memory or throughput without real
+hardware measurements.

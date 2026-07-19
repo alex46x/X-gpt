@@ -4,7 +4,7 @@ Project Genesis is a research codebase for building a decoder-only large
 language model from randomly initialized weights with Python and PyTorch.
 Development proceeds in reviewed phases.
 
-Phases 2 through 10 provide:
+Phases 2 through 13 provide:
 
 - Safe typed YAML configuration with strict dotted overrides.
 - Runtime environment detection and configuration-relative paths.
@@ -28,8 +28,13 @@ Phases 2 through 10 provide:
   handling, immutable conversations, prompt assembly, and completion benchmarks.
 - Verified inference-only bundles, bounded generate/chat HTTP APIs,
   health/readiness checks, structured request logs, and a non-root CPU container.
-
-Production hardening remains out of scope.
+- Required bundle provenance and semantic compatibility checks.
+- Fatal inference failure isolation, a dependency-free concurrent load probe,
+  operational recovery procedures, and checksummed attested releases.
+- Atomic end-to-end experiment execution from verified local sources through a
+  trained, evaluated, checkpointed, deployable inference bundle.
+- A non-allocating training preflight for source integrity, configuration
+  compatibility, parameter count, schedule size, and device capacity facts.
 
 ## Requirements
 
@@ -57,6 +62,24 @@ Evaluation defaults are in
 Inference defaults are in
 [`configs/inference/default.yaml`](configs/inference/default.yaml).
 
+Run a complete experiment with a dataset configuration that declares both
+training and validation sources:
+
+```console
+genesis-preflight \
+  --dataset-config configs/dataset/experiment.yaml \
+  --device cuda
+```
+
+```console
+genesis-train \
+  --dataset-config configs/dataset/experiment.yaml \
+  --output artifacts/runs/run-001 \
+  --source-revision COMMIT_SHA \
+  --training-run-id run-001 \
+  --device cuda
+```
+
 ## Verify
 
 ```console
@@ -72,6 +95,10 @@ See the [architecture](docs/architecture.md), [Phase 2 decisions](docs/phase-2.m
 [Phase 5 decisions](docs/phase-5.md), [Phase 6 decisions](docs/phase-6.md),
 [Phase 7 decisions](docs/phase-7.md), [Phase 8 decisions](docs/phase-8.md),
 [Phase 9 decisions](docs/phase-9.md), [Phase 10 decisions](docs/phase-10.md),
+[Phase 11 decisions](docs/phase-11.md), [compatibility policy](docs/compatibility.md),
+[Phase 12 decisions](docs/phase-12.md),
+[Phase 13 decisions](docs/phase-13.md),
+[production runbook](docs/runbook.md), [security policy](SECURITY.md),
 [development standards](docs/development.md), and the [roadmap](docs/roadmap.md).
 
 ## License

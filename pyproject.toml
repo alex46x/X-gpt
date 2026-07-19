@@ -30,7 +30,10 @@ dependencies = [
 ]
 
 [project.scripts]
+genesis-load-test = "project_genesis.inference.load_probe:main"
+genesis-preflight = "project_genesis.preflight:main"
 genesis-serve = "project_genesis.inference.service:main"
+genesis-train = "project_genesis.experiment:main"
 
 [dependency-groups]
 dev = [
