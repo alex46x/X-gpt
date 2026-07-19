@@ -21,8 +21,10 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
+  "numpy>=2.0,<3",
   "pypdf>=6.0,<7",
   "pyyaml>=6.0.2,<7",
+  "torch>=2.12,<3",
 ]
 
 [dependency-groups]
@@ -32,6 +34,14 @@ dev = [
   "ruff>=0.14,<0.16",
   "types-pyyaml>=6.0.12,<7",
 ]
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.mypy]
 python_version = "3.12"

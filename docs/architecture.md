@@ -134,3 +134,7 @@ Phase 4 implements a custom byte-level BPE `tokenizer`. It consumes cleaned
 datasets, guarantees UTF-8 coverage through byte IDs, and emits new immutable
 records with `token_ids` populated. Tokenizer code has no model or PyTorch
 dependency.
+
+Phase 5 implements independently tested PyTorch `model` primitives with
+batch-first tensor contracts. Transformer blocks and the decoder remain absent;
+Phase 6 will compose these layers without changing their public shapes.

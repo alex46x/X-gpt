@@ -41,6 +41,19 @@ uv build
 To apply formatting locally, run `uv run ruff format .`. CI checks but never
 rewrites files.
 
+## PyTorch environments
+
+The committed lock uses PyTorch's CPU wheel for reproducible local checks and CI.
+On a compatible accelerator workstation, synchronize first and then replace the
+wheel for that environment:
+
+```console
+uv sync --locked --group dev
+uv pip install --reinstall torch --torch-backend=auto
+```
+
+Running `uv sync` again restores the locked CPU build.
+
 ## Python standards
 
 - Public modules, classes, and functions require useful docstrings.

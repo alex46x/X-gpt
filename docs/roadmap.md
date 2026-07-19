@@ -35,6 +35,8 @@ Status: complete.
 Token embeddings, positional encoding, normalization, feed-forward layers,
 causal multi-head self-attention, and residual connections in PyTorch.
 
+Status: complete.
+
 ## Phase 6 — Decoder-only architecture
 
 Transformer block composition, GPT-style decoder, initialization, parameter

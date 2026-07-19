@@ -1,0 +1,9 @@
+model:
+  vocab_size: 32000
+  context_length: 2048
+  d_model: 768
+  n_heads: 12
+  d_ff: 3072
+  dropout: 0.1
+  bias: true
+  layer_norm_epsilon: 0.00001
