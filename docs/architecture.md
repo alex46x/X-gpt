@@ -136,5 +136,11 @@ records with `token_ids` populated. Tokenizer code has no model or PyTorch
 dependency.
 
 Phase 5 implements independently tested PyTorch `model` primitives with
-batch-first tensor contracts. Transformer blocks and the decoder remain absent;
-Phase 6 will compose these layers without changing their public shapes.
+batch-first tensor contracts. Phase 6 composes them into pre-normalization
+transformer blocks and a decoder-only token-to-logits model.
+
+Phase 7 implements deterministic token packing, next-token loss, AdamW,
+warmup/cosine scheduling, accumulated and clipped gradients, native mixed
+precision, and atomic training checkpoints. Multi-process execution uses native
+PyTorch DDP when deployed; project-specific launch orchestration waits for an
+exercised multi-GPU environment.

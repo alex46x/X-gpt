@@ -16,9 +16,9 @@ configs/
 ```
 
 `dataset/default.yaml`, `preprocessing/default.yaml`, `tokenizer/default.yaml`,
-and `model/default.yaml` exist because those consumers are implemented. Other
-directories and defaults are added with their subsystem rather than carrying
-unvalidated placeholder settings.
+`model/default.yaml`, and `training/default.yaml` exist because those consumers
+are implemented. Other directories and defaults are added with their subsystem
+rather than carrying unvalidated placeholder settings.
 
 Configuration rules:
 

@@ -1,0 +1,15 @@
+training:
+  batch_size: 8
+  sequence_length: 512
+  learning_rate: 0.0003
+  weight_decay: 0.1
+  beta1: 0.9
+  beta2: 0.95
+  epsilon: 0.00000001
+  warmup_steps: 2000
+  max_steps: 100000
+  min_learning_rate_ratio: 0.1
+  gradient_accumulation_steps: 1
+  max_gradient_norm: 1.0
+  precision: bfloat16
+  seed: 1337

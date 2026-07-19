@@ -4,7 +4,7 @@ Project Genesis is a research codebase for building a decoder-only large
 language model from randomly initialized weights with Python and PyTorch.
 Development proceeds in reviewed phases.
 
-Phases 2 through 5 provide:
+Phases 2 through 7 provide:
 
 - Safe typed YAML configuration with strict dotted overrides.
 - Runtime environment detection and configuration-relative paths.
@@ -19,9 +19,11 @@ Phases 2 through 5 provide:
   stable special-token IDs, tokenizer persistence, and quality metrics.
 - PyTorch token and position embeddings, custom LayerNorm, feed-forward layers,
   causal multi-head self-attention, and strict residual addition.
+- Pre-normalization transformer blocks and a GPT-style decoder.
+- Deterministic next-token batching, AdamW, warmup/cosine scheduling, gradient
+  accumulation and clipping, mixed precision, and atomic resumable checkpoints.
 
-Transformer blocks, decoder architecture, training, model evaluation, and
-inference behavior remain out of scope.
+Model evaluation and inference behavior remain out of scope.
 
 ## Requirements
 
@@ -42,6 +44,8 @@ Cleaning defaults are in
 Tokenizer defaults are in
 [`configs/tokenizer/default.yaml`](configs/tokenizer/default.yaml).
 Model defaults are in [`configs/model/default.yaml`](configs/model/default.yaml).
+Training defaults are in
+[`configs/training/default.yaml`](configs/training/default.yaml).
 
 ## Verify
 
@@ -55,7 +59,8 @@ uv build
 
 See the [architecture](docs/architecture.md), [Phase 2 decisions](docs/phase-2.md),
 [Phase 3 decisions](docs/phase-3.md), [Phase 4 decisions](docs/phase-4.md),
-[Phase 5 decisions](docs/phase-5.md), [development standards](docs/development.md),
+[Phase 5 decisions](docs/phase-5.md), [Phase 6 decisions](docs/phase-6.md),
+[Phase 7 decisions](docs/phase-7.md), [development standards](docs/development.md),
 and the [roadmap](docs/roadmap.md).
 
 ## License

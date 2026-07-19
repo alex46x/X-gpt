@@ -50,6 +50,8 @@ Batching, language-model loss, optimizer and scheduler creation, mixed precision
 gradient accumulation and clipping, distributed execution, deterministic
 resumption, and atomic checkpoints.
 
+Status: complete.
+
 ## Phase 8 — Evaluation and benchmarks
 
 Validation loss, perplexity, task and coding benchmarks, performance measurements,
