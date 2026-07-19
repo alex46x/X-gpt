@@ -111,3 +111,16 @@ Datasets, checkpoints, experiment runs, and model weights are generated artifact
 and are excluded from Git. Versioned metadata and small deterministic fixtures may
 be committed. Later phases must define checksums and atomic writes before storing
 valuable artifacts.
+
+## Implemented foundation
+
+Phase 2 implements `configuration` and `datasets`. Configuration is independent;
+datasets imports its loader and shared path and environment models. Dataset source
+formats are declarations only: no tokenizer, content parser, cleaner, model, or
+training behavior exists.
+
+Manifest construction inventories local files deterministically and verifies
+their size and SHA-256 content. Immutable records define provenance and reserve
+optional fields for later derived values. The in-memory registry and local atomic
+manifest store cover current consumers without committing the project to a
+distributed registry or cache.

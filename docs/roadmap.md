@@ -14,6 +14,8 @@ and target architecture. No language-model behavior.
 Typed YAML configuration, dataset record contracts, source manifests, validation,
 and deterministic local ingestion. No tokenizer or model behavior.
 
+Status: complete.
+
 ## Phase 3 — Data cleaning and preprocessing
 
 Streaming normalization, filtering, deduplication, quality reporting, and

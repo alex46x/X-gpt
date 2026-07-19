@@ -2,7 +2,7 @@
 
 ## Environment
 
-Project Genesis supports Python 3.11 through 3.13 and uses `uv` as the single
+Project Genesis supports Python 3.12 through 3.13 and uses `uv` as the single
 dependency and environment workflow.
 
 ```console

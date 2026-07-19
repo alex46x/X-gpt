@@ -1,0 +1,14 @@
+environment: development
+
+paths:
+  data: ../../data
+  cache: ../../artifacts/cache
+  artifacts: ../../artifacts
+
+dataset:
+  name: project-genesis
+  version: 0.1.0
+  license: unlicensed
+  created_at: "2026-07-19T00:00:00+00:00"
+  description: Dataset sources are added explicitly for each experiment.
+  sources: []
