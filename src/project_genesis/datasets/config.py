@@ -4,6 +4,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import overload
 
 from project_genesis.configuration import (
     ConfigMapping,
@@ -13,7 +14,9 @@ from project_genesis.configuration import (
     RuntimeEnvironment,
     detect_environment,
     load_yaml,
+    require_mapping,
     resolve_config_path,
+    validate_keys,
 )
 from project_genesis.datasets.records import DatasetMetadata
 from project_genesis.datasets.sources import DatasetSource, DatasetSplit, SourceFormat
@@ -37,18 +40,18 @@ def load_dataset_config(
 ) -> DatasetConfig:
     """Load and strictly validate dataset YAML configuration."""
     raw = load_yaml(path, overrides)
-    _validate_keys(raw, required={"paths", "dataset"}, optional={"environment"}, location="root")
+    validate_keys(raw, required={"paths", "dataset"}, optional={"environment"}, location="root")
 
     environment_value = raw.get("environment")
     if environment_value is not None and not isinstance(environment_value, str):
         raise ConfigurationError("environment must be a string")
     environment = detect_environment(environment_value, environ=environ)
 
-    paths_raw = _mapping(raw["paths"], "paths")
+    paths_raw = require_mapping(raw["paths"], "paths")
     paths = ProjectPaths.from_mapping(paths_raw, config_file=path)
 
-    dataset = _mapping(raw["dataset"], "dataset")
-    _validate_keys(
+    dataset = require_mapping(raw["dataset"], "dataset")
+    validate_keys(
         dataset,
         required={"name", "version", "license", "created_at", "sources"},
         optional={"description"},
@@ -90,11 +93,11 @@ def _sources(value: ConfigValue, *, config_file: Path) -> tuple[DatasetSource, .
         raise ConfigurationError("dataset.sources must be a list")
     sources: list[DatasetSource] = []
     for index, item in enumerate(value):
-        source = _mapping(item, f"dataset.sources[{index}]")
-        _validate_keys(
+        source = require_mapping(item, f"dataset.sources[{index}]")
+        validate_keys(
             source,
             required={"path", "format", "split"},
-            optional=set(),
+            optional={"language", "license", "text_field", "encoding", "include_extensions"},
             location=f"dataset.sources[{index}]",
         )
         raw_path = source["path"]
@@ -107,11 +110,21 @@ def _sources(value: ConfigValue, *, config_file: Path) -> tuple[DatasetSource, .
         ):
             raise ConfigurationError(f"dataset.sources[{index}] values must be strings")
         try:
+            language = _optional_string(source, "language", "und")
+            license_name = _optional_string(source, "license", None)
+            text_field = _optional_string(source, "text_field", "text")
+            encoding = _optional_string(source, "encoding", "utf-8")
+            extensions = _string_tuple(source.get("include_extensions", []), "include_extensions")
             sources.append(
                 DatasetSource(
                     path=resolve_config_path(raw_path, config_file),
                     format=SourceFormat(raw_format),
                     split=DatasetSplit(raw_split),
+                    language=language,
+                    license=license_name,
+                    text_field=text_field,
+                    encoding=encoding,
+                    include_extensions=extensions,
                 )
             )
         except ValueError as error:
@@ -119,23 +132,36 @@ def _sources(value: ConfigValue, *, config_file: Path) -> tuple[DatasetSource, .
     return tuple(sources)
 
 
-def _mapping(value: ConfigValue, location: str) -> ConfigMapping:
-    if not isinstance(value, dict):
-        raise ConfigurationError(f"{location} must be a mapping")
+@overload
+def _optional_string(
+    values: ConfigMapping,
+    key: str,
+    default: str,
+) -> str: ...
+
+
+@overload
+def _optional_string(
+    values: ConfigMapping,
+    key: str,
+    default: None,
+) -> str | None: ...
+
+
+def _optional_string(
+    values: ConfigMapping,
+    key: str,
+    default: str | None,
+) -> str | None:
+    value = values.get(key, default)
+    if value is None and default is not None:
+        raise ConfigurationError(f"dataset source {key} cannot be null")
+    if value is not None and not isinstance(value, str):
+        raise ConfigurationError(f"dataset source {key} must be a string")
     return value
 
 
-def _validate_keys(
-    values: Mapping[str, ConfigValue],
-    *,
-    required: set[str],
-    optional: set[str],
-    location: str,
-) -> None:
-    keys = set(values)
-    missing = required - keys
-    unknown = keys - required - optional
-    if missing or unknown:
-        raise ConfigurationError(
-            f"{location} keys are invalid; missing={sorted(missing)}, unknown={sorted(unknown)}"
-        )
+def _string_tuple(value: ConfigValue, location: str) -> tuple[str, ...]:
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ConfigurationError(f"dataset source {location} must be a list of strings")
+    return tuple(item for item in value if isinstance(item, str))

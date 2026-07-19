@@ -1,13 +1,12 @@
 """Atomic local persistence for dataset manifests."""
 
 import json
-import os
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
 from project_genesis.datasets.manifest import DatasetManifest
+from project_genesis.utilities import atomic_write_text
 
 
 class ManifestStorage(Protocol):
@@ -31,24 +30,8 @@ class LocalManifestStorage:
     def save(self, manifest: DatasetManifest) -> Path:
         """Atomically persist a manifest as UTF-8 JSON."""
         destination = self._path(manifest.metadata.name, manifest.metadata.version)
-        destination.parent.mkdir(parents=True, exist_ok=True)
         payload = json.dumps(manifest.to_dict(), indent=2, sort_keys=True) + "\n"
-        descriptor, temporary_name = tempfile.mkstemp(
-            dir=destination.parent,
-            prefix=".manifest-",
-            suffix=".tmp",
-            text=True,
-        )
-        temporary = Path(temporary_name)
-        try:
-            with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as stream:
-                stream.write(payload)
-                stream.flush()
-                os.fsync(stream.fileno())
-            os.replace(temporary, destination)
-        except BaseException:
-            temporary.unlink(missing_ok=True)
-            raise
+        atomic_write_text(destination, payload)
         return destination
 
     def load(self, name: str, version: str) -> DatasetManifest:

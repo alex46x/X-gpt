@@ -21,6 +21,8 @@ Status: complete.
 Streaming normalization, filtering, deduplication, quality reporting, and
 reproducible processed-data manifests.
 
+Status: complete.
+
 ## Phase 4 — Vocabulary and tokenizer
 
 Vocabulary construction, special-token policy, tokenizer training, deterministic

@@ -15,9 +15,9 @@ configs/
 └── experiment/
 ```
 
-Only `dataset/default.yaml` exists in Phase 2 because it is the only implemented
-consumer. Other directories and defaults are added with their subsystem rather
-than carrying unvalidated placeholder settings.
+`dataset/default.yaml` and `preprocessing/default.yaml` exist because those
+consumers are implemented. Other directories and defaults are added with their
+subsystem rather than carrying unvalidated placeholder settings.
 
 Configuration rules:
 

@@ -14,7 +14,7 @@ from project_genesis.datasets.records import (
     MetadataValue,
 )
 from project_genesis.datasets.registry import DatasetRegistry
-from project_genesis.datasets.sources import DatasetSource, DatasetSplit, SourceFormat
+from project_genesis.datasets.sources import DatasetSource, DatasetSplit, SourceFormat, source_files
 from project_genesis.datasets.storage import LocalManifestStorage, ManifestStorage
 
 __all__ = [
@@ -40,4 +40,5 @@ __all__ = [
     "load_dataset_config",
     "sha256_file",
     "sha256_text",
+    "source_files",
 ]

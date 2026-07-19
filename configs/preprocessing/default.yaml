@@ -1,0 +1,11 @@
+preprocessing:
+  unicode_normalization: NFKC
+  normalize_newlines: true
+  strip_control_characters: true
+  collapse_whitespace: false
+  trim: true
+  min_characters: 1
+  max_characters: 10000000
+  allowed_languages: []
+  deduplicate: true
+  on_error: raise

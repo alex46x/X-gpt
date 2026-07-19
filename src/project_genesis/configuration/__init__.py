@@ -5,6 +5,8 @@ from project_genesis.configuration.loader import (
     ConfigurationError,
     ConfigValue,
     load_yaml,
+    require_mapping,
+    validate_keys,
 )
 from project_genesis.configuration.models import (
     ProjectPaths,
@@ -21,5 +23,7 @@ __all__ = [
     "RuntimeEnvironment",
     "detect_environment",
     "load_yaml",
+    "require_mapping",
     "resolve_config_path",
+    "validate_keys",
 ]

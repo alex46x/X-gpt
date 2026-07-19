@@ -9,7 +9,12 @@ from pathlib import Path, PurePosixPath
 
 from project_genesis.datasets.integrity import is_sha256, sha256_file
 from project_genesis.datasets.records import DatasetMetadata
-from project_genesis.datasets.sources import DatasetSource, DatasetSplit, SourceFormat
+from project_genesis.datasets.sources import (
+    DatasetSource,
+    DatasetSplit,
+    SourceFormat,
+    source_files,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,12 +87,7 @@ class DatasetManifest:
 
         entries: dict[str, ManifestEntry] = {}
         for source in sources:
-            candidates = (source.path,) if source.path.is_file() else tuple(source.path.rglob("*"))
-            if symbolic_link := next((path for path in candidates if path.is_symlink()), None):
-                raise ValueError(f"symbolic links are not valid dataset files: {symbolic_link}")
-            for file in sorted(
-                (path for path in candidates if path.is_file()), key=lambda path: path.as_posix()
-            ):
+            for file in source_files(source):
                 resolved_file = file.resolve()
                 try:
                     relative = resolved_file.relative_to(resolved_root).as_posix()

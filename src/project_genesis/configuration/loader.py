@@ -1,6 +1,6 @@
 """Safe YAML loading with strict dotted-key overrides."""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from pathlib import Path
 
@@ -52,6 +52,30 @@ def load_yaml(path: Path, overrides: Sequence[str] = ()) -> ConfigMapping:
     for override in overrides:
         _apply_override(result, override)
     return result
+
+
+def require_mapping(value: ConfigValue, location: str) -> ConfigMapping:
+    """Return a configuration mapping or raise a contextual error."""
+    if not isinstance(value, dict):
+        raise ConfigurationError(f"{location} must be a mapping")
+    return value
+
+
+def validate_keys(
+    values: Mapping[str, ConfigValue],
+    *,
+    required: set[str],
+    optional: set[str],
+    location: str,
+) -> None:
+    """Reject missing and unknown configuration keys."""
+    keys = set(values)
+    missing = required - keys
+    unknown = keys - required - optional
+    if missing or unknown:
+        raise ConfigurationError(
+            f"{location} keys are invalid; missing={sorted(missing)}, unknown={sorted(unknown)}"
+        )
 
 
 def _normalize(value: object, location: str) -> ConfigValue:

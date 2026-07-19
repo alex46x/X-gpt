@@ -124,3 +124,8 @@ their size and SHA-256 content. Immutable records define provenance and reserve
 optional fields for later derived values. The in-memory registry and local atomic
 manifest store cover current consumers without committing the project to a
 distributed registry or cache.
+
+Phase 3 implements `preprocessing`, which depends on dataset contracts and emits
+the same immutable `Dataset` and `DatasetRecord` types. Reader selection and raw
+manifest inventory share one deterministic file-selection function so ignored
+files cannot silently influence raw fingerprints.
