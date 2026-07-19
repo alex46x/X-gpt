@@ -6,7 +6,11 @@ from project_genesis.training.config import (
     TrainingConfig,
     load_training_config,
 )
-from project_genesis.training.data import TokenBatch, iter_token_batches
+from project_genesis.training.data import (
+    TokenBatch,
+    iter_shuffled_token_batches,
+    iter_token_batches,
+)
 from project_genesis.training.optimization import create_optimizer, create_scheduler
 from project_genesis.training.trainer import Trainer, seed_training
 
@@ -17,6 +21,7 @@ __all__ = [
     "TrainingConfig",
     "create_optimizer",
     "create_scheduler",
+    "iter_shuffled_token_batches",
     "iter_token_batches",
     "load_checkpoint",
     "load_training_config",

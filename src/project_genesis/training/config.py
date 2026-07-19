@@ -39,6 +39,10 @@ class TrainingConfig:
     max_gradient_norm: float
     precision: Precision
     seed: int
+    checkpoint_interval_steps: int
+    evaluation_interval_steps: int
+    log_interval_steps: int
+    keep_last_checkpoints: int
 
     def __post_init__(self) -> None:
         """Validate training bounds."""
@@ -47,6 +51,10 @@ class TrainingConfig:
             "sequence_length",
             "max_steps",
             "gradient_accumulation_steps",
+            "checkpoint_interval_steps",
+            "evaluation_interval_steps",
+            "log_interval_steps",
+            "keep_last_checkpoints",
         ):
             if getattr(self, name) <= 0:
                 raise ValueError(f"{name} must be positive")
@@ -85,6 +93,10 @@ def load_training_config(
         "max_gradient_norm",
         "precision",
         "seed",
+        "checkpoint_interval_steps",
+        "evaluation_interval_steps",
+        "log_interval_steps",
+        "keep_last_checkpoints",
     }
     validate_keys(values, required=fields, optional=set(), location="training")
     try:
@@ -115,6 +127,22 @@ def load_training_config(
             ),
             precision=Precision(_string(values["precision"], "training.precision")),
             seed=_integer(values["seed"], "training.seed"),
+            checkpoint_interval_steps=_integer(
+                values["checkpoint_interval_steps"],
+                "training.checkpoint_interval_steps",
+            ),
+            evaluation_interval_steps=_integer(
+                values["evaluation_interval_steps"],
+                "training.evaluation_interval_steps",
+            ),
+            log_interval_steps=_integer(
+                values["log_interval_steps"],
+                "training.log_interval_steps",
+            ),
+            keep_last_checkpoints=_integer(
+                values["keep_last_checkpoints"],
+                "training.keep_last_checkpoints",
+            ),
         )
     except ValueError as error:
         raise ConfigurationError(f"Invalid training configuration: {error}") from error

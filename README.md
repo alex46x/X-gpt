@@ -4,7 +4,7 @@ Project Genesis is a research codebase for building a decoder-only large
 language model from randomly initialized weights with Python and PyTorch.
 Development proceeds in reviewed phases.
 
-Phases 2 through 13 provide:
+Phases 2 through 14 provide:
 
 - Safe typed YAML configuration with strict dotted overrides.
 - Runtime environment detection and configuration-relative paths.
@@ -35,6 +35,9 @@ Phases 2 through 13 provide:
   trained, evaluated, checkpointed, deployable inference bundle.
 - A non-allocating training preflight for source integrity, configuration
   compatibility, parameter count, schedule size, and device capacity facts.
+- Recoverable long runs with periodic checkpoints, latest-checkpoint resume,
+  periodic validation, durable metrics, best-checkpoint selection, and retention.
+- Deterministic seeded epoch shuffling with exact microbatch replay after resume.
 
 ## Requirements
 
@@ -80,6 +83,19 @@ genesis-train \
   --device cuda
 ```
 
+An interrupted run prints its exact checkpoint. Resume with the same arguments
+and configuration:
+
+```console
+genesis-train \
+  --dataset-config configs/dataset/experiment.yaml \
+  --output artifacts/runs/run-001 \
+  --source-revision COMMIT_SHA \
+  --training-run-id run-001 \
+  --device cuda \
+  --resume artifacts/runs/.run-001.in-progress/checkpoints/step-00001000.pt
+```
+
 ## Verify
 
 ```console
@@ -98,6 +114,8 @@ See the [architecture](docs/architecture.md), [Phase 2 decisions](docs/phase-2.m
 [Phase 11 decisions](docs/phase-11.md), [compatibility policy](docs/compatibility.md),
 [Phase 12 decisions](docs/phase-12.md),
 [Phase 13 decisions](docs/phase-13.md),
+[Phase 14 decisions](docs/phase-14.md),
+[Phase 15 decisions](docs/phase-15.md),
 [production runbook](docs/runbook.md), [security policy](SECURITY.md),
 [development standards](docs/development.md), and the [roadmap](docs/roadmap.md).
 

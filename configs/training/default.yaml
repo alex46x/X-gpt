@@ -13,3 +13,7 @@ training:
   max_gradient_norm: 1.0
   precision: bfloat16
   seed: 1337
+  checkpoint_interval_steps: 1000
+  evaluation_interval_steps: 1000
+  log_interval_steps: 10
+  keep_last_checkpoints: 3

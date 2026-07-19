@@ -184,3 +184,17 @@ configured decoder on PyTorch's storage-free meta device, and reports parameter,
 schedule, persistent-state, and requested-device facts before an expensive run.
 It intentionally does not predict activation memory or throughput without real
 hardware measurements.
+
+Phase 14 keeps completed experiment directories immutable while storing active
+work in one deterministic `.in-progress` sibling. Periodic atomic checkpoints,
+durable JSONL metrics, strict run identity, best-checkpoint pointers, retention,
+and restored microbatch position make single-process training recoverable.
+External tracking services and distributed coordination remain outside this
+boundary.
+
+Phase 15 derives each training epoch's record permutation from the configured
+seed and epoch number without consuming global RNG state. The existing
+checkpointed microbatch count identifies the exact position in this reproducible
+stream, so resume needs no parallel sampler state or checkpoint migration.
+Validation order remains stable. Rank-aware partitioning waits for an exercised
+multi-GPU environment.

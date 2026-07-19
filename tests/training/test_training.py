@@ -1,5 +1,7 @@
+from collections.abc import Iterator
 from dataclasses import replace
 from datetime import UTC, datetime
+from itertools import islice
 from pathlib import Path
 
 import pytest
@@ -9,8 +11,10 @@ from project_genesis.datasets import DatasetRecord
 from project_genesis.model import GPTDecoder, ModelConfig
 from project_genesis.training import (
     Precision,
+    TokenBatch,
     Trainer,
     TrainingConfig,
+    iter_shuffled_token_batches,
     iter_token_batches,
     load_checkpoint,
     load_training_config,
@@ -39,6 +43,10 @@ def _training_config(
         max_gradient_norm=100.0,
         precision=Precision.FLOAT32,
         seed=17,
+        checkpoint_interval_steps=2,
+        evaluation_interval_steps=2,
+        log_interval_steps=1,
+        keep_last_checkpoints=2,
     )
 
 
@@ -123,6 +131,63 @@ def test_token_batching_can_keep_complete_rows_from_the_final_partial_batch() ->
     assert len(batches) == 1
     assert batches[0][0].tolist() == [[4, 5, 6]]
     assert batches[0][1].tolist() == [[5, 6, 2]]
+
+
+def test_shuffled_epoch_stream_is_reproducible_and_exactly_replayable() -> None:
+    records = tuple(_record(str(token_id), (token_id, token_id)) for token_id in range(4, 12))
+
+    def stream(seed: int) -> Iterator[TokenBatch]:
+        return iter_shuffled_token_batches(
+            records,
+            batch_size=1,
+            sequence_length=2,
+            separator_token_id=2,
+            seed=seed,
+        )
+
+    two_epochs = list(islice(stream(17), 22))
+    expected = two_epochs[5:17]
+    replayed = list(islice(stream(17), 5, 17))
+    different_seed = list(islice(stream(18), 5, 17))
+
+    for expected_batch, replayed_batch in zip(expected, replayed, strict=True):
+        torch.testing.assert_close(expected_batch[0], replayed_batch[0])
+        torch.testing.assert_close(expected_batch[1], replayed_batch[1])
+    assert any(
+        not torch.equal(first_epoch[0], second_epoch[0])
+        for first_epoch, second_epoch in zip(
+            two_epochs[:11],
+            two_epochs[11:],
+            strict=True,
+        )
+    )
+    assert any(
+        not torch.equal(expected_batch[0], other_batch[0])
+        for expected_batch, other_batch in zip(expected, different_seed, strict=True)
+    )
+
+
+def test_shuffled_epoch_stream_rejects_invalid_or_insufficient_input() -> None:
+    with pytest.raises(ValueError, match="seed cannot be negative"):
+        next(
+            iter_shuffled_token_batches(
+                (),
+                batch_size=1,
+                sequence_length=2,
+                separator_token_id=2,
+                seed=-1,
+            )
+        )
+    with pytest.raises(ValueError, match="does not contain one complete sequence"):
+        next(
+            iter_shuffled_token_batches(
+                [_record("short", ())],
+                batch_size=1,
+                sequence_length=2,
+                separator_token_id=2,
+                seed=17,
+            )
+        )
 
 
 def test_scheduler_warms_up_before_cosine_decay() -> None:

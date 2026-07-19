@@ -98,3 +98,21 @@ size, persistent training-state lower bounds, and requested-device availability
 without allocating model weights.
 
 Status: complete.
+
+## Phase 14 - Recoverable training runs
+
+Periodic checkpoints, latest-checkpoint resume, periodic validation, durable
+metrics, best-checkpoint selection, retention, and graceful interruption.
+
+Status: complete.
+
+## Phase 15 - Deterministic data sampling
+
+Seeded per-epoch record shuffling, exact single-process stream replay from the
+checkpointed microbatch position, and fail-fast input validation.
+
+Status: complete.
+
+Further phases are chosen from the selected corpus and measured NVIDIA hardware.
+Dataset sharding and token caches require corpus scale facts; CUDA and
+distributed execution require the actual GPU topology.

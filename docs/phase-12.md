@@ -60,8 +60,9 @@ run-001/
     `-- tokenizer.json
 ```
 
-The destination must not exist. Work happens in a sibling temporary directory
-and the complete directory is renamed into place only after evaluation,
+The destination must not exist. Phase 14 replaces the random temporary directory
+with a deterministic `.in-progress` sibling so interrupted work can resume. The
+complete directory is still renamed into place only after evaluation,
 checkpointing, and bundle creation succeed.
 
 ## Design decisions
@@ -72,9 +73,8 @@ checkpointing, and bundle creation succeed.
 - Model vocabulary must equal the vocabulary actually produced by tokenizer
   training.
 - Training sequence length must fit the model context.
-- Training batches replay deterministically across epochs until `max_steps`.
-  Shuffling is deferred until the training configuration defines its exact
-  reproducibility contract.
+- Training records use a deterministic seed-and-epoch permutation and batches
+  replay exactly from the checkpointed microbatch position until `max_steps`.
 - The run manifest records source, run, processed dataset, tokenizer, bundle,
   configuration checksums, step, and evaluation identities.
 - No workflow engine, database, tracking service, or distributed launcher is

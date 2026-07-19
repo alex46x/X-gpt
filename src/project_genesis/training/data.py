@@ -1,5 +1,6 @@
 """Deterministic next-token batch construction."""
 
+import random
 from collections import deque
 from collections.abc import Iterable, Iterator
 
@@ -9,6 +10,40 @@ from torch import Tensor
 from project_genesis.datasets import DatasetRecord
 
 type TokenBatch = tuple[Tensor, Tensor]
+
+
+def iter_shuffled_token_batches(
+    records: Iterable[DatasetRecord],
+    *,
+    batch_size: int,
+    sequence_length: int,
+    separator_token_id: int,
+    seed: int,
+) -> Iterator[TokenBatch]:
+    """Yield endlessly repeated batches with deterministic per-epoch shuffling."""
+    if seed < 0:
+        raise ValueError("seed cannot be negative")
+    source = tuple(records)
+    if not source:
+        raise ValueError("training split cannot be empty")
+
+    epoch = 0
+    while True:
+        ordered = list(source)
+        random.Random(f"{seed}:{epoch}").shuffle(ordered)
+        batches = iter_token_batches(
+            ordered,
+            batch_size=batch_size,
+            sequence_length=sequence_length,
+            separator_token_id=separator_token_id,
+            drop_last=False,
+        )
+        try:
+            yield next(batches)
+        except StopIteration as error:
+            raise ValueError("training split does not contain one complete sequence") from error
+        yield from batches
+        epoch += 1
 
 
 def iter_token_batches(
