@@ -1,5 +1,11 @@
 """Reproducible next-token benchmarks, reports, and regression gates."""
 
+from project_genesis.benchmark.completion import (
+    CompletionBenchmarkResult,
+    CompletionCase,
+    CompletionCaseResult,
+    run_completion_benchmark,
+)
 from project_genesis.benchmark.core import (
     BenchmarkCase,
     BenchmarkResult,
@@ -21,11 +27,15 @@ __all__ = [
     "BenchmarkReport",
     "BenchmarkResult",
     "CaseResult",
+    "CompletionBenchmarkResult",
+    "CompletionCase",
+    "CompletionCaseResult",
     "RegressionResult",
     "benchmark_fingerprint",
     "compare_results",
     "load_report",
     "report_json",
     "run_benchmark",
+    "run_completion_benchmark",
     "save_report",
 ]

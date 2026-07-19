@@ -1,0 +1,9 @@
+inference:
+  max_new_tokens: 128
+  temperature: 0.8
+  top_k: 50
+  top_p: 0.95
+  repetition_penalty: 1.0
+  stop_token_ids:
+    - 2
+  use_cache: true

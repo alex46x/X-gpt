@@ -2,7 +2,7 @@
 
 from torch import Tensor, nn
 
-from project_genesis.model.attention import CausalSelfAttention
+from project_genesis.model.attention import CausalSelfAttention, KVCache
 from project_genesis.model.config import ModelConfig
 from project_genesis.model.feed_forward import FeedForward
 from project_genesis.model.normalization import LayerNorm
@@ -41,9 +41,21 @@ class TransformerBlock(nn.Module):
 
     def forward(self, inputs: Tensor) -> Tensor:
         """Transform hidden states while preserving their shape."""
+        output, _ = self.forward_cached(inputs)
+        return output
+
+    def forward_cached(
+        self,
+        inputs: Tensor,
+        cache: KVCache | None = None,
+    ) -> tuple[Tensor, KVCache]:
+        """Transform hidden states and return updated attention keys and values."""
         attention_input: Tensor = self.attention_norm(inputs)
-        attention_output: Tensor = self.attention(attention_input)
+        attention_output, updated_cache = self.attention.forward_cached(
+            attention_input,
+            cache,
+        )
         hidden = residual_add(inputs, attention_output)
         feed_forward_input: Tensor = self.feed_forward_norm(hidden)
         feed_forward_output: Tensor = self.feed_forward(feed_forward_input)
-        return residual_add(hidden, feed_forward_output)
+        return residual_add(hidden, feed_forward_output), updated_cache

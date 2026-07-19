@@ -64,6 +64,8 @@ Status: complete.
 Autoregressive decoding, sampling controls, KV caching, conversation state,
 prompt formatting, coding-oriented evaluation flows, and inference tests.
 
+Status: complete.
+
 ## Phase 10 — Deployment
 
 Versioned model packaging, service entry points, health checks, observability,

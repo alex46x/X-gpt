@@ -10,13 +10,17 @@ from project_genesis.benchmark import (
     BenchmarkReport,
     BenchmarkResult,
     CaseResult,
+    CompletionCase,
     benchmark_fingerprint,
     compare_results,
     load_report,
     run_benchmark,
+    run_completion_benchmark,
     save_report,
 )
 from project_genesis.evaluation import EvaluationResult, RegressionThresholds
+from project_genesis.inference import FinishReason, GenerationConfig
+from project_genesis.model import ModelConfig
 
 
 class NextTokenModel(nn.Module):
@@ -33,6 +37,18 @@ class NextTokenModel(nn.Module):
             device=inputs.device,
         )
         return logits.scatter(-1, predictions.unsqueeze(-1), 10.0)
+
+
+class CompletionModel(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.config = ModelConfig(5, 8, 4, 1, 8, 0.0, True, 1e-5, 1)
+        self.anchor = nn.Parameter(torch.zeros(()))
+
+    def forward(self, inputs: Tensor) -> Tensor:
+        logits = torch.zeros(*inputs.shape, self.config.vocab_size)
+        logits[..., 2] = 1
+        return logits
 
 
 def _evaluation(
@@ -102,6 +118,24 @@ def test_regression_gate_reports_every_failed_metric() -> None:
     )
     assert not failed.passed
     assert len(failed.failures) == 3
+
+
+def test_coding_completion_flow_scores_generated_token_sequences() -> None:
+    config = GenerationConfig(1, 0.0, 0, 1.0, 1.0, (2,), False)
+    cases = (
+        CompletionCase("function-body", "code", (1,), (2,)),
+        CompletionCase("wrong-answer", "code", (1,), (3,)),
+    )
+
+    result = run_completion_benchmark(
+        CompletionModel(),  # type: ignore[arg-type]
+        cases,
+        config,
+    )
+
+    assert result.exact_match_accuracy == 0.5
+    assert result.cases[0].finish_reason is FinishReason.STOP
+    assert len(result.suite_fingerprint) == 64
 
 
 def test_report_round_trip_is_canonical_and_atomic(tmp_path: Path) -> None:

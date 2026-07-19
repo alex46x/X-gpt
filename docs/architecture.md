@@ -149,3 +149,9 @@ Phase 8 implements token-weighted validation metrics, perplexity, named
 next-token task and coding cases, synchronized throughput measurements,
 fingerprinted canonical reports, and regression gates. Generated-answer and
 code-execution benchmarks wait for inference and a secure execution boundary.
+
+Phase 9 implements validated per-layer KV caches, bounded autoregressive
+generation, greedy and sampled decoding controls, immutable conversation state,
+role-delimited prompt formatting, tokenizer/model reply composition, and
+fingerprinted exact-match completion benchmarks. Untrusted code execution
+remains outside the library until a hardened sandbox exists.

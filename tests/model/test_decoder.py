@@ -61,6 +61,19 @@ def test_decoder_is_causal_end_to_end() -> None:
     assert not torch.equal(original_logits[:, 3], changed_logits[:, 3])
 
 
+def test_cached_decoder_matches_full_forward() -> None:
+    model = GPTDecoder(_config()).eval()
+    token_ids = torch.tensor([[1, 2, 3, 4, 5]])
+
+    full = model(token_ids)
+    first, cache = model.forward_cached(token_ids[:, :3])
+    second, updated = model.forward_cached(token_ids[:, 3:], cache)
+
+    torch.testing.assert_close(torch.cat((first, second), dim=1), full)
+    assert len(updated) == model.config.n_layers
+    assert all(layer[0].shape[2] == 5 for layer in updated)
+
+
 def test_decoder_rejects_empty_and_overlong_sequences() -> None:
     model = GPTDecoder(_config())
 

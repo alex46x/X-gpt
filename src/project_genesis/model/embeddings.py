@@ -38,15 +38,22 @@ class LearnedPositionEmbedding(nn.Module):
         self.d_model = d_model
         self.embedding = nn.Embedding(context_length, d_model)
 
-    def forward(self, token_embeddings: Tensor) -> Tensor:
+    def forward(self, token_embeddings: Tensor, *, offset: int = 0) -> Tensor:
         """Return broadcastable positions for batch-first token embeddings."""
         if token_embeddings.ndim != 3 or token_embeddings.shape[-1] != self.d_model:
             raise ValueError("token_embeddings must have shape (batch, sequence, d_model)")
+        if offset < 0:
+            raise ValueError("position offset cannot be negative")
         sequence_length = token_embeddings.shape[1]
-        if sequence_length > self.context_length:
+        if offset + sequence_length > self.context_length:
             raise ValueError(
-                f"sequence length {sequence_length} exceeds context length {self.context_length}"
+                f"position range through {offset + sequence_length} exceeds context length "
+                f"{self.context_length}"
             )
-        positions = torch.arange(sequence_length, device=token_embeddings.device)
+        positions = torch.arange(
+            offset,
+            offset + sequence_length,
+            device=token_embeddings.device,
+        )
         embedded: Tensor = self.embedding(positions).unsqueeze(0)
         return embedded

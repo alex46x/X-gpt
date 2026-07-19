@@ -41,6 +41,19 @@ def test_attention_is_causal() -> None:
     assert not torch.allclose(original_output[:, 3:], changed_output[:, 3:])
 
 
+def test_cached_attention_matches_full_attention() -> None:
+    module = attention().eval()
+    inputs = torch.randn(2, 6, 8)
+
+    full = module(inputs)
+    first, cache = module.forward_cached(inputs[:, :4])
+    second, updated = module.forward_cached(inputs[:, 4:], cache)
+
+    torch.testing.assert_close(torch.cat((first, second), dim=1), full)
+    assert updated[0].shape == (2, 2, 6, 4)
+    assert updated[1].shape == updated[0].shape
+
+
 def test_attention_rejects_context_overflow_and_invalid_dimensions() -> None:
     module = attention()
 
