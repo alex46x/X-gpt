@@ -42,6 +42,8 @@ Status: complete.
 Transformer block composition, GPT-style decoder, initialization, parameter
 accounting, masking, forward contracts, and numerical tests.
 
+Status: complete.
+
 ## Phase 7 — Training engine
 
 Batching, language-model loss, optimizer and scheduler creation, mixed precision,

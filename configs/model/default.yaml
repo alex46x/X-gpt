@@ -7,3 +7,6 @@ model:
   dropout: 0.1
   bias: true
   layer_norm_epsilon: 0.00001
+  n_layers: 12
+  initializer_range: 0.02
+  tie_embeddings: true

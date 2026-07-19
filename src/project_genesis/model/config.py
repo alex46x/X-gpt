@@ -24,10 +24,20 @@ class ModelConfig:
     dropout: float
     bias: bool
     layer_norm_epsilon: float
+    n_layers: int = 12
+    initializer_range: float = 0.02
+    tie_embeddings: bool = True
 
     def __post_init__(self) -> None:
         """Validate dimensions and probabilities."""
-        for name in ("vocab_size", "context_length", "d_model", "n_heads", "d_ff"):
+        for name in (
+            "vocab_size",
+            "context_length",
+            "d_model",
+            "n_heads",
+            "d_ff",
+            "n_layers",
+        ):
             if getattr(self, name) <= 0:
                 raise ValueError(f"{name} must be positive")
         if self.d_model % self.n_heads:
@@ -36,6 +46,8 @@ class ModelConfig:
             raise ValueError("dropout must be in [0, 1)")
         if self.layer_norm_epsilon <= 0:
             raise ValueError("layer_norm_epsilon must be positive")
+        if self.initializer_range <= 0:
+            raise ValueError("initializer_range must be positive")
 
     @property
     def head_dim(self) -> int:
@@ -60,6 +72,9 @@ def load_model_config(
         "dropout",
         "bias",
         "layer_norm_epsilon",
+        "n_layers",
+        "initializer_range",
+        "tie_embeddings",
     }
     validate_keys(values, required=fields, optional=set(), location="model")
     try:
@@ -75,6 +90,12 @@ def load_model_config(
                 values["layer_norm_epsilon"],
                 "model.layer_norm_epsilon",
             ),
+            n_layers=_integer(values["n_layers"], "model.n_layers"),
+            initializer_range=_number(
+                values["initializer_range"],
+                "model.initializer_range",
+            ),
+            tie_embeddings=_boolean(values["tie_embeddings"], "model.tie_embeddings"),
         )
     except ValueError as error:
         raise ConfigurationError(f"Invalid model configuration: {error}") from error

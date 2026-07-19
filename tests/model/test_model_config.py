@@ -15,6 +15,9 @@ def test_default_model_configuration_loads_with_override() -> None:
     assert config.context_length == 1024
     assert config.dropout == 0.0
     assert config.head_dim == 64
+    assert config.n_layers == 12
+    assert config.initializer_range == 0.02
+    assert config.tie_embeddings is True
 
 
 def test_model_configuration_rejects_incompatible_heads() -> None:
@@ -35,6 +38,9 @@ model:
   dropout: 0.0
   bias: true
   layer_norm_epsilon: 0.00001
+  n_layers: 2
+  initializer_range: 0.02
+  tie_embeddings: true
   unknown: true
 """.lstrip(),
         encoding="utf-8",
