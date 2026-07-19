@@ -144,3 +144,8 @@ warmup/cosine scheduling, accumulated and clipped gradients, native mixed
 precision, and atomic training checkpoints. Multi-process execution uses native
 PyTorch DDP when deployed; project-specific launch orchestration waits for an
 exercised multi-GPU environment.
+
+Phase 8 implements token-weighted validation metrics, perplexity, named
+next-token task and coding cases, synchronized throughput measurements,
+fingerprinted canonical reports, and regression gates. Generated-answer and
+code-execution benchmarks wait for inference and a secure execution boundary.

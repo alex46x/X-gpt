@@ -57,6 +57,8 @@ Status: complete.
 Validation loss, perplexity, task and coding benchmarks, performance measurements,
 regression thresholds, and reproducible reports.
 
+Status: complete.
+
 ## Phase 9 — Inference and chat
 
 Autoregressive decoding, sampling controls, KV caching, conversation state,
