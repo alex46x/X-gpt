@@ -21,14 +21,20 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
+  "fastapi>=0.139.2,<0.140",
   "numpy>=2.0,<3",
   "pypdf>=6.0,<7",
   "pyyaml>=6.0.2,<7",
   "torch>=2.12,<3",
+  "uvicorn>=0.51,<0.52",
 ]
+
+[project.scripts]
+genesis-serve = "project_genesis.inference.service:main"
 
 [dependency-groups]
 dev = [
+  "httpx2>=2.7,<2.8",
   "mypy>=1.18,<2",
   "pytest>=8.4,<10",
   "ruff>=0.14,<0.16",

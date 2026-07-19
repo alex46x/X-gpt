@@ -48,3 +48,15 @@ jobs:
 
       - name: Build distributions
         run: uv build
+
+  container:
+    name: Build deployment image
+    runs-on: ubuntu-latest
+    needs: quality
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Build container
+        run: docker build -f deployment/Dockerfile -t project-genesis:ci .

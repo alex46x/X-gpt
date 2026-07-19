@@ -1,0 +1,12 @@
+.git
+.github
+.venv
+artifacts
+build
+checkpoints
+data
+dist
+runs
+tests
+**/__pycache__
+**/*.pyc

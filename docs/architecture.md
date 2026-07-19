@@ -155,3 +155,10 @@ generation, greedy and sampled decoding controls, immutable conversation state,
 role-delimited prompt formatting, tokenizer/model reply composition, and
 fingerprinted exact-match completion benchmarks. Untrusted code execution
 remains outside the library until a hardened sandbox exists.
+
+Phase 10 adds inference-only bundles and HTTP transport beside the inference
+boundary. Container and operational files remain in the external `deployment`
+directory. Bundles verify model configuration, weights, tokenizer identity,
+package version, and checksums before serving. The stateless FastAPI service
+provides bounded authenticated generation/chat, liveness/readiness, structured
+request logs, and a non-root CPU container.

@@ -4,7 +4,7 @@ Project Genesis is a research codebase for building a decoder-only large
 language model from randomly initialized weights with Python and PyTorch.
 Development proceeds in reviewed phases.
 
-Phases 2 through 9 provide:
+Phases 2 through 10 provide:
 
 - Safe typed YAML configuration with strict dotted overrides.
 - Runtime environment detection and configuration-relative paths.
@@ -26,8 +26,10 @@ Phases 2 through 9 provide:
   throughput measurements, canonical reports, and regression gates.
 - Cached autoregressive generation, greedy and stochastic sampling, stop/context
   handling, immutable conversations, prompt assembly, and completion benchmarks.
+- Verified inference-only bundles, bounded generate/chat HTTP APIs,
+  health/readiness checks, structured request logs, and a non-root CPU container.
 
-Serving and deployment behavior remain out of scope.
+Production hardening remains out of scope.
 
 ## Requirements
 
@@ -69,8 +71,8 @@ See the [architecture](docs/architecture.md), [Phase 2 decisions](docs/phase-2.m
 [Phase 3 decisions](docs/phase-3.md), [Phase 4 decisions](docs/phase-4.md),
 [Phase 5 decisions](docs/phase-5.md), [Phase 6 decisions](docs/phase-6.md),
 [Phase 7 decisions](docs/phase-7.md), [Phase 8 decisions](docs/phase-8.md),
-[Phase 9 decisions](docs/phase-9.md), [development standards](docs/development.md),
-and the [roadmap](docs/roadmap.md).
+[Phase 9 decisions](docs/phase-9.md), [Phase 10 decisions](docs/phase-10.md),
+[development standards](docs/development.md), and the [roadmap](docs/roadmap.md).
 
 ## License
 
