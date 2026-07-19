@@ -1,0 +1,10 @@
+tokenizer:
+  vocab_size: 32000
+  min_pair_frequency: 2
+  special_tokens:
+    pad: "<pad>"
+    bos: "<bos>"
+    eos: "<eos>"
+    unk: "<unk>"
+  add_bos: false
+  add_eos: false

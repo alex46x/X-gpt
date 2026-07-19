@@ -15,9 +15,10 @@ configs/
 └── experiment/
 ```
 
-`dataset/default.yaml` and `preprocessing/default.yaml` exist because those
-consumers are implemented. Other directories and defaults are added with their
-subsystem rather than carrying unvalidated placeholder settings.
+`dataset/default.yaml`, `preprocessing/default.yaml`, and
+`tokenizer/default.yaml` exist because those consumers are implemented. Other
+directories and defaults are added with their subsystem rather than carrying
+unvalidated placeholder settings.
 
 Configuration rules:
 

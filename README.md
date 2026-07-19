@@ -4,7 +4,7 @@ Project Genesis is a research codebase for building a decoder-only large
 language model from randomly initialized weights with Python and PyTorch.
 Development proceeds in reviewed phases.
 
-Phases 2 and 3 provide:
+Phases 2 through 4 provide:
 
 - Safe typed YAML configuration with strict dotted overrides.
 - Runtime environment detection and configuration-relative paths.
@@ -15,9 +15,10 @@ Phases 2 and 3 provide:
   and local HTML snapshots.
 - Configurable normalization, filtering, exact deduplication, quality reports,
   and processed-data manifests.
+- Custom byte-level BPE vocabulary training, reversible Unicode encoding,
+  stable special-token IDs, tokenizer persistence, and quality metrics.
 
-Tokenizer, model, training, evaluation, and inference behavior remain out of
-scope.
+Model, training, model evaluation, and inference behavior remain out of scope.
 
 ## Requirements
 
@@ -35,6 +36,8 @@ The default dataset configuration is
 contains no sources; experiments must declare their local inputs explicitly.
 Cleaning defaults are in
 [`configs/preprocessing/default.yaml`](configs/preprocessing/default.yaml).
+Tokenizer defaults are in
+[`configs/tokenizer/default.yaml`](configs/tokenizer/default.yaml).
 
 ## Verify
 
@@ -47,8 +50,8 @@ uv build
 ```
 
 See the [architecture](docs/architecture.md), [Phase 2 decisions](docs/phase-2.md),
-[Phase 3 decisions](docs/phase-3.md), [development standards](docs/development.md),
-and [roadmap](docs/roadmap.md).
+[Phase 3 decisions](docs/phase-3.md), [Phase 4 decisions](docs/phase-4.md),
+[development standards](docs/development.md), and the [roadmap](docs/roadmap.md).
 
 ## License
 

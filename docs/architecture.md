@@ -129,3 +129,8 @@ Phase 3 implements `preprocessing`, which depends on dataset contracts and emits
 the same immutable `Dataset` and `DatasetRecord` types. Reader selection and raw
 manifest inventory share one deterministic file-selection function so ignored
 files cannot silently influence raw fingerprints.
+
+Phase 4 implements a custom byte-level BPE `tokenizer`. It consumes cleaned
+datasets, guarantees UTF-8 coverage through byte IDs, and emits new immutable
+records with `token_ids` populated. Tokenizer code has no model or PyTorch
+dependency.

@@ -28,6 +28,8 @@ Status: complete.
 Vocabulary construction, special-token policy, tokenizer training, deterministic
 encoding/decoding, serialization, and tokenizer quality tests.
 
+Status: complete.
+
 ## Phase 5 — Model primitives
 
 Token embeddings, positional encoding, normalization, feed-forward layers,
