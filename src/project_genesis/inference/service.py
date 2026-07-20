@@ -16,11 +16,12 @@ from typing import Annotated
 import torch
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from project_genesis.chat import Conversation, Message, Role, generate_reply
 from project_genesis.inference.bundle import InferenceBundle, load_bundle
+from project_genesis.inference.chat_ui import CHAT_UI
 from project_genesis.inference.config import (
     GenerationConfig,
     load_generation_config,
@@ -181,6 +182,10 @@ def create_app(
         application.state.max_request_bytes = max_request_bytes
         application.state.max_prompt_characters = max_prompt_characters
         application.state.max_new_tokens = max_new_tokens
+
+    @application.get("/", response_class=HTMLResponse, include_in_schema=False)
+    def chat_page() -> str:
+        return CHAT_UI
 
     @application.middleware("http")
     async def observe(

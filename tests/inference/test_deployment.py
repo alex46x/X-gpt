@@ -131,6 +131,7 @@ def test_http_health_auth_generation_chat_and_limits() -> None:
     )
 
     with TestClient(application) as client:
+        chat_page = client.get("/")
         health = client.get("/healthz")
         ready = client.get("/readyz")
         unauthorized = client.post("/v1/generate", json={"prompt": "x"})
@@ -155,6 +156,10 @@ def test_http_health_auth_generation_chat_and_limits() -> None:
             json={"prompt": "x", "max_new_tokens": 3},
         )
 
+    assert chat_page.status_code == 200
+    assert chat_page.headers["content-type"].startswith("text/html")
+    assert "Project Genesis Chat" in chat_page.text
+    assert "fetch('/v1/chat'" in chat_page.text
     assert health.json() == {"status": "ok"}
     assert ready.json()["bundle_fingerprint"] == "a" * 64
     assert unauthorized.status_code == 401

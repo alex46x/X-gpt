@@ -139,6 +139,10 @@ The CodeSearchNet Git repository contributes its MIT-licensed tooling source,
 not the separately hosted multi-gigabyte CodeSearchNet corpus. Full-corpus use
 requires a later sharded data pipeline.
 
+With `genesis-serve` running, open `http://127.0.0.1:8000/` for the local chat
+interface. The OpenAPI testing page remains available at
+`http://127.0.0.1:8000/docs`.
+
 ## Verify
 
 ```console
