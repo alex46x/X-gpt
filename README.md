@@ -139,6 +139,49 @@ The CodeSearchNet Git repository contributes its MIT-licensed tooling source,
 not the separately hosted multi-gigabyte CodeSearchNet corpus. Full-corpus use
 requires a later sharded data pipeline.
 
+### CodeSearchNet Python CPU training
+
+Materialize a deterministic 12,000-example training split and 1,000-example
+validation split from the preserved CodeSearchNet Python archive:
+
+```console
+uv run --locked python scripts/prepare_codesearchnet_instructions.py
+```
+
+The script downloads the 897 MiB archive once, verifies Zenodo's published size
+and MD5, streams compressed JSONL without extracting it, filters oversized
+functions, and formats each documentation/function pair with the same role
+contract used by chat inference. The upstream functions carry mixed licenses;
+the generated manifest retains source URLs for review and attribution. Do not
+redistribute the generated sample without performing that review.
+
+Validate and train the 4,935,680-parameter CPU profile:
+
+```console
+uv run --locked genesis-preflight \
+  --dataset-config configs/dataset/codesearchnet-python.yaml \
+  --tokenizer-config configs/tokenizer/codesearchnet-python.yaml \
+  --model-config configs/model/codesearchnet-cpu.yaml \
+  --training-config configs/training/codesearchnet-cpu.yaml \
+  --evaluation-config configs/evaluation/codesearchnet-cpu.yaml \
+  --device cpu
+
+uv run --locked genesis-train \
+  --dataset-config configs/dataset/codesearchnet-python.yaml \
+  --tokenizer-config configs/tokenizer/codesearchnet-python.yaml \
+  --model-config configs/model/codesearchnet-cpu.yaml \
+  --training-config configs/training/codesearchnet-cpu.yaml \
+  --evaluation-config configs/evaluation/codesearchnet-cpu.yaml \
+  --output artifacts/runs/codesearchnet-python-cpu-v1 \
+  --source-revision COMMIT_SHA \
+  --training-run-id codesearchnet-python-cpu-v1 \
+  --device cpu
+```
+
+This profile schedules 5.12 million training tokens. It is a meaningful
+from-scratch CPU experiment, not a production coding assistant; much larger
+models, broader licensed corpora, and GPU training are required for that.
+
 With `genesis-serve` running, open `http://127.0.0.1:8000/` for the local chat
 interface. The OpenAPI testing page remains available at
 `http://127.0.0.1:8000/docs`.

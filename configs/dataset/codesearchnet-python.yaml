@@ -1,0 +1,26 @@
+environment: development
+
+paths:
+  data: ../../data
+  cache: ../../artifacts/cache
+  artifacts: ../../artifacts
+
+dataset:
+  name: codesearchnet-python-instructions
+  version: 1.0.0
+  license: mixed-upstream
+  created_at: "2026-02-23T14:11:41Z"
+  description: Deterministic CodeSearchNet Python requirement-to-function sample.
+  sources:
+    - path: ../../data/codesearchnet-python/train.jsonl
+      format: jsonl
+      split: train
+      language: en
+      license: mixed-upstream
+      text_field: text
+    - path: ../../data/codesearchnet-python/validation.jsonl
+      format: jsonl
+      split: validation
+      language: en
+      license: mixed-upstream
+      text_field: text
