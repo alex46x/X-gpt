@@ -2,7 +2,7 @@
 
 ## 1. Phase Overview
 
-Phase 16 turns the three user-selected repositories into a pinned, licensed,
+Phase 16 turns the user-selected repositories into a pinned, licensed,
 reproducible smoke experiment. It validates the complete dataset-to-inference
 path without claiming that this small corpus produces a capable coding model.
 
@@ -49,7 +49,8 @@ The source package and runtime dependency set are unchanged.
 
 ## 6. Design Decisions
 
-- nanoGPT and minGPT are training sources; lit-llama is validation-only.
+- nanoGPT, minGPT, and the CodeSearchNet tooling repository are training
+  sources; lit-llama is validation-only.
 - Repository-level separation prevents validation files from entering training.
 - Only `.json`, `.md`, `.py`, `.sh`, `.toml`, `.txt`, `.yaml`, and `.yml`
   files are selected. Git metadata, notebooks, images, and generated binaries
@@ -67,6 +68,7 @@ Reviewed snapshots:
 | --- | --- | --- | --- |
 | `karpathy/nanoGPT` | train | MIT | `3adf61e154c3fe3fca428ad6bc3818b27a3b8291` |
 | `karpathy/minGPT` | train | MIT | `37baab71b9abea1b76ab957409a1cc2fbfba8a26` |
+| `github/CodeSearchNet` | train | MIT | `106e827405c968597da938f6b373d30183918869` |
 | `Lightning-AI/lit-llama` | validation | Apache-2.0 | `2a464de2a1d2f266614d15091d3d7f30330c3ede` |
 
 Materialize and preflight:
@@ -87,11 +89,17 @@ source revision, training-run ID, and device.
 
 ## 8. Unit Tests
 
-The preparation script was run against all three existing clones and verified
+The preparation script was run against all four clones and verified
 their origin URLs and exact commits. Repository preflight then hashed the real
 selected files and validated all subsystem contracts. The complete 20-step CPU
 experiment exercised tokenizer training, model training, periodic evaluation,
 checkpointing, bundle publication, bundle verification, and cached generation.
+
+The archived CodeSearchNet repository contains benchmark filenames that Windows
+cannot represent. Preparation therefore archives only its training-relevant
+`src`, `function_parser`, `script`, and `tests` trees plus root license and
+README files from the pinned Git object. The invalid benchmark artifacts are not
+training inputs.
 
 ## 9. Documentation
 
@@ -118,3 +126,9 @@ path has run successfully.
 This corpus is only a systems smoke test. A useful coding model requires a much
 larger, deliberately licensed and deduplicated corpus. CUDA configuration still
 waits for the target NVIDIA GPU and driver facts.
+
+The `github/CodeSearchNet` repository contains MIT-licensed tooling and examples,
+not the separate CodeSearchNet corpus. That corpus is approximately 20 GB,
+contains about two million code-comment pairs from six languages, and carries
+per-source license metadata. It is intentionally deferred until sharded
+processing replaces the current in-memory corpus boundary.

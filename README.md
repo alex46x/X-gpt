@@ -98,7 +98,8 @@ genesis-train \
 
 ### Coding smoke test
 
-Materialize the reviewed nanoGPT, minGPT, and lit-llama snapshots:
+Materialize the reviewed nanoGPT, minGPT, CodeSearchNet tooling, and lit-llama
+snapshots:
 
 ```console
 uv run --locked python scripts/prepare_coding_smoke.py
@@ -133,6 +134,10 @@ uv run --locked genesis-train \
 
 This 20-step run verifies the system. It is not enough data or training to
 produce a useful coding assistant.
+
+The CodeSearchNet Git repository contributes its MIT-licensed tooling source,
+not the separately hosted multi-gigabyte CodeSearchNet corpus. Full-corpus use
+requires a later sharded data pipeline.
 
 ## Verify
 

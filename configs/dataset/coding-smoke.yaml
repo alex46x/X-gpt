@@ -7,10 +7,10 @@ paths:
 
 dataset:
   name: coding-smoke
-  version: 1.0.0
+  version: 1.1.0
   license: MIT AND Apache-2.0
   created_at: "2026-07-20T00:00:00+06:00"
-  description: Pinned nanoGPT, minGPT, and lit-llama source snapshots for smoke testing.
+  description: Pinned nanoGPT, minGPT, CodeSearchNet, and lit-llama snapshots for smoke testing.
   sources:
     - path: ../../data/coding-smoke/train/nanoGPT
       format: git
@@ -19,6 +19,12 @@ dataset:
       license: MIT
       include_extensions: [.json, .md, .py, .sh, .toml, .txt, .yaml, .yml]
     - path: ../../data/coding-smoke/train/minGPT
+      format: git
+      split: train
+      language: en
+      license: MIT
+      include_extensions: [.json, .md, .py, .sh, .toml, .txt, .yaml, .yml]
+    - path: ../../data/coding-smoke/train/CodeSearchNet
       format: git
       split: train
       language: en

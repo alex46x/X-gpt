@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+import tarfile
 import tempfile
 from pathlib import Path
 
@@ -18,6 +19,12 @@ REPOSITORIES = (
         "https://github.com/karpathy/minGPT.git",
         "37baab71b9abea1b76ab957409a1cc2fbfba8a26",
         ROOT / "data/coding-smoke/train/minGPT",
+    ),
+    (
+        "CodeSearchNet",
+        "https://github.com/github/CodeSearchNet.git",
+        "106e827405c968597da938f6b373d30183918869",
+        ROOT / "data/coding-smoke/train/CodeSearchNet",
     ),
     (
         "lit-llama",
@@ -56,17 +63,40 @@ def main() -> None:
                     "origin",
                     revision,
                 )
-                _run(
-                    "git",
-                    "-C",
-                    str(checkout),
-                    "-c",
-                    "advice.detachedHead=false",
-                    "checkout",
-                    "--quiet",
-                    "--detach",
-                    "FETCH_HEAD",
-                )
+                if name == "CodeSearchNet":
+                    archive = Path(temporary) / "CodeSearchNet.tar"
+                    _run(
+                        "git",
+                        "-C",
+                        str(checkout),
+                        "-c",
+                        "core.protectNTFS=false",
+                        "archive",
+                        "--format=tar",
+                        f"--output={archive}",
+                        revision,
+                        "src",
+                        "function_parser",
+                        "script",
+                        "tests",
+                        "README.md",
+                        "LICENSE",
+                    )
+                    with tarfile.open(archive) as stream:
+                        stream.extractall(checkout, filter="data")
+                    _run("git", "-C", str(checkout), "update-ref", "HEAD", revision)
+                else:
+                    _run(
+                        "git",
+                        "-C",
+                        str(checkout),
+                        "-c",
+                        "advice.detachedHead=false",
+                        "checkout",
+                        "--quiet",
+                        "--detach",
+                        "FETCH_HEAD",
+                    )
                 os.replace(checkout, destination)
         print(f"{name}: {revision}")
 
