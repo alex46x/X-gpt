@@ -116,3 +116,11 @@ Status: complete.
 Further phases are chosen from the selected corpus and measured NVIDIA hardware.
 Dataset sharding and token caches require corpus scale facts; CUDA and
 distributed execution require the actual GPU topology.
+
+## Phase 16 - Reproducible coding smoke corpus
+
+Pinned licensed Git snapshots, explicit repository-level train/validation
+separation, small experiment configurations, and a verified end-to-end CPU
+smoke run.
+
+Status: complete.

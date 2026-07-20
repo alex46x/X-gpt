@@ -96,6 +96,44 @@ genesis-train \
   --resume artifacts/runs/.run-001.in-progress/checkpoints/step-00001000.pt
 ```
 
+### Coding smoke test
+
+Materialize the reviewed nanoGPT, minGPT, and lit-llama snapshots:
+
+```console
+uv run --locked python scripts/prepare_coding_smoke.py
+```
+
+Validate the small CPU experiment:
+
+```console
+uv run --locked genesis-preflight \
+  --dataset-config configs/dataset/coding-smoke.yaml \
+  --tokenizer-config configs/tokenizer/coding-smoke.yaml \
+  --model-config configs/model/coding-smoke.yaml \
+  --training-config configs/training/coding-smoke.yaml \
+  --evaluation-config configs/evaluation/coding-smoke.yaml \
+  --device cpu
+```
+
+Train it:
+
+```console
+uv run --locked genesis-train \
+  --dataset-config configs/dataset/coding-smoke.yaml \
+  --tokenizer-config configs/tokenizer/coding-smoke.yaml \
+  --model-config configs/model/coding-smoke.yaml \
+  --training-config configs/training/coding-smoke.yaml \
+  --evaluation-config configs/evaluation/coding-smoke.yaml \
+  --output artifacts/runs/coding-smoke \
+  --source-revision COMMIT_SHA \
+  --training-run-id coding-smoke \
+  --device cpu
+```
+
+This 20-step run verifies the system. It is not enough data or training to
+produce a useful coding assistant.
+
 ## Verify
 
 ```console
@@ -116,6 +154,7 @@ See the [architecture](docs/architecture.md), [Phase 2 decisions](docs/phase-2.m
 [Phase 13 decisions](docs/phase-13.md),
 [Phase 14 decisions](docs/phase-14.md),
 [Phase 15 decisions](docs/phase-15.md),
+[Phase 16 decisions](docs/phase-16.md),
 [production runbook](docs/runbook.md), [security policy](SECURITY.md),
 [development standards](docs/development.md), and the [roadmap](docs/roadmap.md).
 

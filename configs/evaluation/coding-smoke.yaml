@@ -1,0 +1,6 @@
+evaluation:
+  max_batches: 10
+  regression:
+    max_loss_increase: 0.01
+    max_accuracy_drop: 0.005
+    min_throughput_ratio: 0.9

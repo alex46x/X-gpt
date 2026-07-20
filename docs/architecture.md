@@ -198,3 +198,9 @@ checkpointed microbatch count identifies the exact position in this reproducible
 stream, so resume needs no parallel sampler state or checkpoint migration.
 Validation order remains stable. Rank-aware partitioning waits for an exercised
 multi-GPU environment.
+
+Phase 16 materializes the first real coding smoke corpus from exact licensed Git
+commits. Generated snapshots stay outside version control while a standard
+library script makes them reproducible on another workstation. Existing source
+readers and experiment interfaces handle the corpus without a downloader
+framework or source-package changes.
