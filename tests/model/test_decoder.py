@@ -74,6 +74,36 @@ def test_cached_decoder_matches_full_forward() -> None:
     assert all(layer[0].shape[2] == 5 for layer in updated)
 
 
+def test_modern_decoder_backpropagates_and_uses_compact_cache() -> None:
+    config = ModelConfig(
+        vocab_size=31,
+        context_length=16,
+        d_model=16,
+        n_heads=4,
+        n_kv_heads=2,
+        d_ff=32,
+        dropout=0.0,
+        bias=False,
+        layer_norm_epsilon=1e-5,
+        n_layers=2,
+        position_encoding="rope",
+        normalization="rmsnorm",
+        feed_forward="swiglu",
+        use_sdpa=True,
+    )
+    model = GPTDecoder(config)
+    token_ids = torch.tensor([[1, 2, 3, 4, 5]])
+
+    full = model(token_ids)
+    full.mean().backward()
+    first, cache = model.forward_cached(token_ids[:, :3])
+    second, updated = model.forward_cached(token_ids[:, 3:], cache)
+
+    torch.testing.assert_close(torch.cat((first, second), dim=1), full.detach())
+    assert model.position_embedding is None
+    assert updated[0][0].shape == (1, 2, 5, 4)
+
+
 def test_decoder_rejects_empty_and_overlong_sequences() -> None:
     model = GPTDecoder(_config())
 

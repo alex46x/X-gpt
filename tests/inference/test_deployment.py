@@ -104,6 +104,33 @@ def test_bundle_refuses_to_overwrite_existing_artifacts(tmp_path: Path) -> None:
         save_bundle(destination, _model(), _tokenizer(), provenance=PROVENANCE)
 
 
+def test_modern_bundle_round_trip_preserves_architecture(tmp_path: Path) -> None:
+    model = GPTDecoder(
+        ModelConfig(
+            260,
+            16,
+            16,
+            4,
+            32,
+            0.0,
+            False,
+            1e-5,
+            1,
+            position_encoding="rope",
+            normalization="rmsnorm",
+            feed_forward="swiglu",
+            n_kv_heads=2,
+            use_sdpa=True,
+        )
+    )
+    destination = tmp_path / "modern"
+
+    save_bundle(destination, model, _tokenizer(), provenance=PROVENANCE)
+    loaded = load_bundle(destination)
+
+    assert loaded.model.config == model.config
+
+
 def test_bundle_version_compatibility_policy() -> None:
     assert versions_compatible("0.1.0", "0.1.9")
     assert not versions_compatible("0.1.0", "0.2.0")

@@ -8,7 +8,7 @@ from project_genesis.model.attention import KVCache
 from project_genesis.model.block import TransformerBlock
 from project_genesis.model.config import ModelConfig
 from project_genesis.model.embeddings import LearnedPositionEmbedding, TokenEmbedding
-from project_genesis.model.normalization import LayerNorm
+from project_genesis.model.normalization import build_normalization
 
 type DecoderCache = tuple[KVCache, ...]
 
@@ -21,15 +21,20 @@ class GPTDecoder(nn.Module):
         super().__init__()
         self.config = config
         self.token_embedding = TokenEmbedding(config.vocab_size, config.d_model)
-        self.position_embedding = LearnedPositionEmbedding(
-            config.context_length,
-            config.d_model,
+        self.position_embedding = (
+            LearnedPositionEmbedding(
+                config.context_length,
+                config.d_model,
+            )
+            if config.position_encoding == "learned"
+            else None
         )
         self.embedding_dropout = nn.Dropout(config.dropout)
         self.blocks = nn.ModuleList(TransformerBlock(config) for _ in range(config.n_layers))
-        self.final_norm = LayerNorm(
+        self.final_norm = build_normalization(
             config.d_model,
             config.layer_norm_epsilon,
+            config.normalization,
             bias=config.bias,
         )
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
@@ -68,11 +73,14 @@ class GPTDecoder(nn.Module):
                 raise ValueError("all decoder cache entries must have equal length")
             past_length = lengths.pop()
         token_states: Tensor = self.token_embedding(token_ids)
-        position_states: Tensor = self.position_embedding(
-            token_states,
-            offset=past_length,
-        )
-        hidden: Tensor = self.embedding_dropout(token_states + position_states)
+        hidden = token_states
+        if self.position_embedding is not None:
+            position_states: Tensor = self.position_embedding(
+                token_states,
+                offset=past_length,
+            )
+            hidden = token_states + position_states
+        hidden = self.embedding_dropout(hidden)
         updated_cache: list[KVCache] = []
         for index, block in enumerate(self.blocks):
             if not isinstance(block, TransformerBlock):

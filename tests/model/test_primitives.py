@@ -2,7 +2,7 @@ import pytest
 import torch
 from torch.nn import functional as functional
 
-from project_genesis.model import FeedForward, LayerNorm, residual_add
+from project_genesis.model import FeedForward, LayerNorm, RMSNorm, residual_add
 
 
 def test_custom_layer_norm_matches_pytorch_and_backpropagates() -> None:
@@ -42,6 +42,18 @@ def test_feed_forward_preserves_shape_and_eval_is_deterministic() -> None:
 
     assert first.shape == inputs.shape
     torch.testing.assert_close(first, second)
+    assert inputs.grad is not None
+
+
+def test_rms_norm_and_swiglu_backpropagate() -> None:
+    inputs = torch.randn(2, 3, 8, requires_grad=True)
+    normalization = RMSNorm(8, 1e-5)
+    network = FeedForward(8, 24, 0.0, bias=False, activation="swiglu")
+
+    output = network(normalization(inputs))
+    output.mean().backward()
+
+    assert output.shape == inputs.shape
     assert inputs.grad is not None
 
 

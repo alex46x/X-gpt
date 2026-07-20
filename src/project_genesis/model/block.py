@@ -5,7 +5,7 @@ from torch import Tensor, nn
 from project_genesis.model.attention import CausalSelfAttention, KVCache
 from project_genesis.model.config import ModelConfig
 from project_genesis.model.feed_forward import FeedForward
-from project_genesis.model.normalization import LayerNorm
+from project_genesis.model.normalization import build_normalization
 from project_genesis.model.residual import residual_add
 
 
@@ -15,9 +15,10 @@ class TransformerBlock(nn.Module):
     def __init__(self, config: ModelConfig) -> None:
         """Initialize one pre-normalization decoder block."""
         super().__init__()
-        self.attention_norm = LayerNorm(
+        self.attention_norm = build_normalization(
             config.d_model,
             config.layer_norm_epsilon,
+            config.normalization,
             bias=config.bias,
         )
         self.attention = CausalSelfAttention(
@@ -26,10 +27,14 @@ class TransformerBlock(nn.Module):
             config.context_length,
             config.dropout,
             bias=config.bias,
+            n_kv_heads=config.kv_heads,
+            rope_theta=config.rope_theta if config.position_encoding == "rope" else None,
+            use_sdpa=config.use_sdpa,
         )
-        self.feed_forward_norm = LayerNorm(
+        self.feed_forward_norm = build_normalization(
             config.d_model,
             config.layer_norm_epsilon,
+            config.normalization,
             bias=config.bias,
         )
         self.feed_forward = FeedForward(
@@ -37,6 +42,7 @@ class TransformerBlock(nn.Module):
             config.d_ff,
             config.dropout,
             bias=config.bias,
+            activation=config.feed_forward,
         )
 
     def forward(self, inputs: Tensor) -> Tensor:

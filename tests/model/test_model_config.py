@@ -18,11 +18,28 @@ def test_default_model_configuration_loads_with_override() -> None:
     assert config.n_layers == 12
     assert config.initializer_range == 0.02
     assert config.tie_embeddings is True
+    assert config.position_encoding == "learned"
+    assert config.kv_heads == config.n_heads
+
+
+def test_modern_model_configuration_loads() -> None:
+    config = load_model_config(Path("configs/model/modern-super.yaml"))
+
+    assert config.context_length == 8192
+    assert config.n_layers == 24
+    assert config.n_heads == 16
+    assert config.kv_heads == 4
+    assert config.position_encoding == "rope"
+    assert config.normalization == "rmsnorm"
+    assert config.feed_forward == "swiglu"
+    assert config.use_sdpa is True
 
 
 def test_model_configuration_rejects_incompatible_heads() -> None:
     with pytest.raises(ValueError, match="divisible"):
         ModelConfig(100, 16, 10, 3, 40, 0.0, True, 1e-5)
+    with pytest.raises(ValueError, match="n_kv_heads"):
+        ModelConfig(100, 16, 12, 3, 40, 0.0, True, 1e-5, n_kv_heads=2)
 
 
 def test_model_configuration_rejects_unknown_fields(tmp_path: Path) -> None:

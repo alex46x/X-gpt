@@ -14,6 +14,7 @@ class FeedForward(nn.Module):
         dropout: float,
         *,
         bias: bool = True,
+        activation: str = "gelu",
     ) -> None:
         """Initialize the two learned projections."""
         super().__init__()
@@ -21,8 +22,15 @@ class FeedForward(nn.Module):
             raise ValueError("d_model and d_ff must be positive")
         if not 0.0 <= dropout < 1.0:
             raise ValueError("dropout must be in [0, 1)")
+        if activation not in {"gelu", "swiglu"}:
+            raise ValueError("activation must be 'gelu' or 'swiglu'")
         self.d_model = d_model
-        self.input_projection = nn.Linear(d_model, d_ff, bias=bias)
+        self.activation = activation
+        self.input_projection = nn.Linear(
+            d_model,
+            d_ff if activation == "gelu" else 2 * d_ff,
+            bias=bias,
+        )
         self.output_projection = nn.Linear(d_ff, d_model, bias=bias)
         self.dropout = nn.Dropout(dropout)
 
@@ -30,6 +38,11 @@ class FeedForward(nn.Module):
         """Transform ``(..., d_model)`` hidden states."""
         if inputs.shape[-1] != self.d_model:
             raise ValueError(f"final dimension must be {self.d_model}")
-        hidden = functional.gelu(self.input_projection(inputs), approximate="none")
+        projected = self.input_projection(inputs)
+        if self.activation == "swiglu":
+            gate, value = projected.chunk(2, dim=-1)
+            hidden = functional.silu(gate) * value
+        else:
+            hidden = functional.gelu(projected, approximate="none")
         output: Tensor = self.dropout(self.output_projection(hidden))
         return output

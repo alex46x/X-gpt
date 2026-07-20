@@ -54,6 +54,26 @@ def test_cached_attention_matches_full_attention() -> None:
     assert updated[1].shape == updated[0].shape
 
 
+def test_modern_grouped_query_rope_sdpa_cache_matches_full_attention() -> None:
+    module = CausalSelfAttention(
+        d_model=16,
+        n_heads=4,
+        n_kv_heads=2,
+        context_length=16,
+        dropout=0.0,
+        rope_theta=10_000.0,
+        use_sdpa=True,
+    ).eval()
+    inputs = torch.randn(2, 7, 16)
+
+    full = module(inputs)
+    first, cache = module.forward_cached(inputs[:, :4])
+    second, updated = module.forward_cached(inputs[:, 4:], cache)
+
+    torch.testing.assert_close(torch.cat((first, second), dim=1), full)
+    assert updated[0].shape == (2, 2, 7, 4)
+
+
 def test_attention_rejects_context_overflow_and_invalid_dimensions() -> None:
     module = attention()
 
@@ -61,3 +81,5 @@ def test_attention_rejects_context_overflow_and_invalid_dimensions() -> None:
         module(torch.zeros(1, 9, 8))
     with pytest.raises(ValueError, match="divisible"):
         CausalSelfAttention(10, 3, 8, 0.0)
+    with pytest.raises(ValueError, match="n_kv_heads"):
+        CausalSelfAttention(12, 3, 8, 0.0, n_kv_heads=2)

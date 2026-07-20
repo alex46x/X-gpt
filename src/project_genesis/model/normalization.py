@@ -30,3 +30,41 @@ class LayerNorm(nn.Module):
         )
         output = normalized.to(inputs.dtype) * self.weight.to(inputs.dtype)
         return output if self.bias is None else output + self.bias.to(inputs.dtype)
+
+
+class RMSNorm(nn.Module):
+    """Normalize hidden-state magnitude without centering."""
+
+    def __init__(self, d_model: int, epsilon: float) -> None:
+        """Initialize a learned RMS scaling vector."""
+        super().__init__()
+        if d_model <= 0 or epsilon <= 0:
+            raise ValueError("d_model and epsilon must be positive")
+        self.d_model = d_model
+        self.epsilon = epsilon
+        self.weight = nn.Parameter(torch.ones(d_model))
+
+    def forward(self, inputs: Tensor) -> Tensor:
+        """Normalize a tensor whose final dimension is ``d_model``."""
+        if inputs.shape[-1] != self.d_model:
+            raise ValueError(f"final dimension must be {self.d_model}")
+        statistics = inputs.float() if inputs.dtype in {torch.float16, torch.bfloat16} else inputs
+        normalized = statistics * torch.rsqrt(
+            statistics.square().mean(dim=-1, keepdim=True) + self.epsilon
+        )
+        return normalized.to(inputs.dtype) * self.weight.to(inputs.dtype)
+
+
+def build_normalization(
+    d_model: int,
+    epsilon: float,
+    kind: str,
+    *,
+    bias: bool,
+) -> nn.Module:
+    """Build the configured normalization layer."""
+    if kind == "layernorm":
+        return LayerNorm(d_model, epsilon, bias=bias)
+    if kind == "rmsnorm":
+        return RMSNorm(d_model, epsilon)
+    raise ValueError(f"unsupported normalization: {kind}")

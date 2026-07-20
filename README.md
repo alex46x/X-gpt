@@ -19,6 +19,8 @@ Phases 2 through 14 provide:
   stable special-token IDs, tokenizer persistence, and quality metrics.
 - PyTorch token and position embeddings, custom LayerNorm, feed-forward layers,
   causal multi-head self-attention, and strict residual addition.
+- Opt-in RoPE, RMSNorm, SwiGLU, grouped-query attention, and native scaled
+  dot-product attention while legacy bundles retain their original architecture.
 - Pre-normalization transformer blocks and a GPT-style decoder.
 - Deterministic next-token batching, AdamW, warmup/cosine scheduling, gradient
   accumulation and clipping, mixed precision, and atomic resumable checkpoints.
@@ -64,6 +66,14 @@ Evaluation defaults are in
 [`configs/evaluation/default.yaml`](configs/evaluation/default.yaml).
 Inference defaults are in
 [`configs/inference/default.yaml`](configs/inference/default.yaml).
+
+The opt-in [`modern-super.yaml`](configs/model/modern-super.yaml) profile is a
+303,350,784-parameter, 24-layer decoder with 16 query heads, 4 key/value heads,
+a 32,000-token vocabulary, and an 8,192-token context. Preflight estimates a
+4.85 GB persistent training-state lower bound; activations and CUDA workspace
+require additional memory. Select batch size and training sequence length only
+after measuring the target GPU. Existing model configs and trained bundles
+continue to use the legacy architecture.
 
 Run a complete experiment with a dataset configuration that declares both
 training and validation sources:
