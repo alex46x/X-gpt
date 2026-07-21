@@ -187,6 +187,13 @@ def test_http_health_auth_generation_chat_and_limits() -> None:
     assert chat_page.headers["content-type"].startswith("text/html")
     assert "Project Genesis Chat" in chat_page.text
     assert "fetch('/v1/chat'" in chat_page.text
+    assert ".welcome[hidden] { display: none; }" in chat_page.text
+    assert "height: 100dvh;" in chat_page.text
+    assert ".conversation {\n      min-height: 0;" in chat_page.text
+    assert "messages: messages.slice(-1)" in chat_page.text
+    assert "messages.length = historyLength" in chat_page.text
+    assert "max_new_tokens: 128" in chat_page.text
+    assert "article.setAttribute('role', 'alert')" in chat_page.text
     assert health.json() == {"status": "ok"}
     assert ready.json()["bundle_fingerprint"] == "a" * 64
     assert unauthorized.status_code == 401

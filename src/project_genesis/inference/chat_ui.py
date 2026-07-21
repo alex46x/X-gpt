@@ -53,7 +53,7 @@ CHAT_UI = """<!doctype html>
     .app {
       display: grid;
       grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-      min-height: 100dvh;
+      height: 100dvh;
     }
 
     .sidebar {
@@ -163,7 +163,7 @@ CHAT_UI = """<!doctype html>
       position: relative;
       display: grid;
       min-width: 0;
-      min-height: 100dvh;
+      min-height: 0;
       grid-template-rows: auto minmax(0, 1fr) auto;
     }
 
@@ -199,6 +199,7 @@ CHAT_UI = """<!doctype html>
     .menu-button:hover { background: var(--surface); }
 
     .conversation {
+      min-height: 0;
       overflow-y: auto;
       scroll-behavior: smooth;
       scrollbar-color: #343c48 transparent;
@@ -218,6 +219,8 @@ CHAT_UI = """<!doctype html>
       place-content: center;
       text-align: center;
     }
+
+    .welcome[hidden] { display: none; }
 
     .welcome-kicker {
       margin: 0 0 10px;
@@ -528,6 +531,7 @@ CHAT_UI = """<!doctype html>
       welcome.hidden = true;
       const article = document.createElement('article');
       article.className = `message ${role} ${extraClass}`.trim();
+      if (extraClass === 'error') article.setAttribute('role', 'alert');
       if (role === 'assistant') {
         const avatar = document.createElement('span');
         avatar.className = 'avatar';
@@ -557,6 +561,7 @@ CHAT_UI = """<!doctype html>
     }
 
     async function sendMessage(text) {
+      const historyLength = messages.length;
       messages.push({ role: 'user', content: text });
       addMessage('user', text);
       const thinking = addThinking();
@@ -566,8 +571,8 @@ CHAT_UI = """<!doctype html>
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            messages,
-            max_new_tokens: 40,
+            messages: messages.slice(-1),
+            max_new_tokens: 128,
             temperature: 1,
             top_k: 50
           })
@@ -580,6 +585,7 @@ CHAT_UI = """<!doctype html>
         thinking.remove();
         addMessage('assistant', payload.text || '(The model returned an empty response.)');
       } catch (error) {
+        messages.length = historyLength;
         thinking.remove();
         const detail = error instanceof Error ? error.message : 'The request failed.';
         addMessage('assistant', `${detail} Try a shorter message or start a new chat.`, 'error');
