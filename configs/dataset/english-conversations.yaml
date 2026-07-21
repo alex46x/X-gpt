@@ -1,0 +1,26 @@
+environment: development
+
+paths:
+  data: ../../data
+  cache: ../../artifacts/cache
+  artifacts: ../../artifacts
+
+dataset:
+  name: databricks-dolly-15k-conversations
+  version: 1.0.0
+  license: CC-BY-SA-3.0
+  created_at: "2026-07-21T00:00:00+06:00"
+  description: Pinned human-written English instruction and response conversations.
+  sources:
+    - path: ../../data/english-conversations/train.jsonl
+      format: jsonl
+      split: train
+      language: en
+      license: CC-BY-SA-3.0
+      text_field: text
+    - path: ../../data/english-conversations/validation.jsonl
+      format: jsonl
+      split: validation
+      language: en
+      license: CC-BY-SA-3.0
+      text_field: text

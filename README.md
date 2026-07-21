@@ -192,6 +192,28 @@ This profile schedules 5.12 million training tokens. It is a meaningful
 from-scratch CPU experiment, not a production coding assistant; much larger
 models, broader licensed corpora, and GPU training are required for that.
 
+### Small English conversation CPU run
+
+Download and deterministically split the pinned, human-written Databricks
+Dolly-15k corpus (CC BY-SA 3.0):
+
+```powershell
+py -m uv run --locked python scripts/prepare_english_conversations.py
+```
+
+The conversation run deliberately reuses the existing 4,935,680-parameter CPU
+model, tokenizer, training, and evaluation profiles:
+
+```powershell
+py -m uv run --locked genesis-preflight --dataset-config configs/dataset/english-conversations.yaml --tokenizer-config configs/tokenizer/codesearchnet-python.yaml --model-config configs/model/codesearchnet-cpu.yaml --training-config configs/training/codesearchnet-cpu.yaml --evaluation-config configs/evaluation/codesearchnet-cpu.yaml --device cpu
+
+py -m uv run --locked genesis-train --dataset-config configs/dataset/english-conversations.yaml --tokenizer-config configs/tokenizer/codesearchnet-python.yaml --model-config configs/model/codesearchnet-cpu.yaml --training-config configs/training/codesearchnet-cpu.yaml --evaluation-config configs/evaluation/codesearchnet-cpu.yaml --output artifacts/runs/english-conversations-cpu-v1 --source-revision bdd27f4d94b9c1f951818a7da7fd7aeea5dbff1a --training-run-id english-conversations-cpu-v1 --device cpu
+```
+
+This is a bounded from-scratch experiment for short English replies, not a
+general-purpose assistant. Keep the generated dataset attribution when sharing
+adaptations, as required by CC BY-SA 3.0.
+
 With `genesis-serve` running, open `http://127.0.0.1:8000/` for the local chat
 interface. The OpenAPI testing page remains available at
 `http://127.0.0.1:8000/docs`.
