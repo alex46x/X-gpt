@@ -1,0 +1,38 @@
+environment: development
+
+paths:
+  data: ../../data
+  cache: ../../artifacts/cache
+  artifacts: ../../artifacts
+
+dataset:
+  name: english-conversations-mixed
+  version: 2.0.0
+  license: CC-BY-SA-3.0 AND Apache-2.0
+  created_at: "2026-07-21T00:00:00+06:00"
+  description: Human-written Dolly instructions mixed with OpenAssistant conversations.
+  sources:
+    - path: ../../data/english-conversations/train.jsonl
+      format: jsonl
+      split: train
+      language: en
+      license: CC-BY-SA-3.0
+      text_field: text
+    - path: ../../data/openassistant-english/train.jsonl
+      format: jsonl
+      split: train
+      language: en
+      license: Apache-2.0
+      text_field: text
+    - path: ../../data/english-conversations/validation.jsonl
+      format: jsonl
+      split: validation
+      language: en
+      license: CC-BY-SA-3.0
+      text_field: text
+    - path: ../../data/openassistant-english/validation.jsonl
+      format: jsonl
+      split: validation
+      language: en
+      license: Apache-2.0
+      text_field: text

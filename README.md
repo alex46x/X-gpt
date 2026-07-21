@@ -214,6 +214,15 @@ This is a bounded from-scratch experiment for short English replies, not a
 general-purpose assistant. Keep the generated dataset attribution when sharing
 adaptations, as required by CC BY-SA 3.0.
 
+For a broader second CPU run, add the pinned Apache-2.0 OpenAssistant English
+subset and train it together with Dolly rather than replacing the earlier data:
+
+```powershell
+py -m uv run --locked python scripts/prepare_openassistant_conversations.py
+
+py -m uv run --locked genesis-train --dataset-config configs/dataset/english-conversations-mixed.yaml --tokenizer-config configs/tokenizer/codesearchnet-python.yaml --model-config configs/model/codesearchnet-cpu.yaml --training-config configs/training/english-conversations-mixed-cpu.yaml --evaluation-config configs/evaluation/codesearchnet-cpu.yaml --output artifacts/runs/english-conversations-mixed-cpu-v2 --source-revision oasst1-fdf72ae+dolly-bdd27f4 --training-run-id english-conversations-mixed-cpu-v2 --device cpu
+```
+
 With `genesis-serve` running, open `http://127.0.0.1:8000/` for the local chat
 interface. The OpenAPI testing page remains available at
 `http://127.0.0.1:8000/docs`.
