@@ -215,6 +215,24 @@ evaluation:
     ]
     assert len({(metric["type"], metric["step"]) for metric in metrics}) == len(metrics)
     assert json.loads((output / "state.json").read_text(encoding="utf-8"))["status"] == "completed"
+
+    fine_tuned_output = tmp_path / "fine-tuned"
+    fine_tuned = run_experiment(
+        dataset_config_path=dataset,
+        preprocessing_config_path=preprocessing,
+        tokenizer_config_path=tokenizer,
+        model_config_path=model,
+        training_config_path=training,
+        evaluation_config_path=evaluation,
+        output=fine_tuned_output,
+        source_revision="def456",
+        training_run_id="integration-fine-tuned",
+        init_bundle=output / "bundle",
+    )
+    fine_tuned_run = json.loads((fine_tuned_output / "run.json").read_text(encoding="utf-8"))
+    assert fine_tuned.training_steps == 2
+    assert fine_tuned_run["initial_bundle_fingerprint"] == loaded.fingerprint
+
     with pytest.raises(FileExistsError):
         run_experiment(
             dataset_config_path=dataset,

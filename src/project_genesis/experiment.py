@@ -22,7 +22,7 @@ from project_genesis.datasets import (
     sha256_file,
 )
 from project_genesis.evaluation import EvaluationResult, evaluate_model, load_evaluation_config
-from project_genesis.inference import BundleProvenance, save_bundle
+from project_genesis.inference import BundleProvenance, load_bundle, save_bundle
 from project_genesis.model import GPTDecoder, load_model_config
 from project_genesis.preprocessing import (
     PreprocessingResult,
@@ -79,8 +79,11 @@ def run_experiment(
     training_run_id: str,
     device: str | torch.device = "cpu",
     resume: Path | None = None,
+    init_bundle: Path | None = None,
 ) -> ExperimentResult:
     """Train, evaluate, and atomically publish one recoverable local experiment."""
+    if resume is not None and init_bundle is not None:
+        raise ValueError("init-bundle cannot be combined with resume")
     destination = output.expanduser().resolve()
     staging = destination.parent / f".{destination.name}.in-progress"
     if destination.exists():
@@ -114,6 +117,8 @@ def run_experiment(
     prepared = False
     new_run = resume is None
     trainer: Trainer | None = None
+    initial_model: GPTDecoder | None = None
+    initial_bundle_fingerprint: str | None = None
     state: dict[str, object] = {}
     try:
         input_manifest = DatasetManifest.build(
@@ -136,10 +141,19 @@ def run_experiment(
         validation_dataset = _split(processed.dataset, DatasetSplit.VALIDATION)
 
         if new_run:
-            tokenizer = train_tokenizer(training_dataset, tokenizer_config).tokenizer
+            if init_bundle is None:
+                tokenizer = train_tokenizer(training_dataset, tokenizer_config).tokenizer
+            else:
+                initialized = load_bundle(init_bundle)
+                if initialized.model.config != model_config:
+                    raise ValueError("initial bundle model configuration does not match")
+                tokenizer = initialized.tokenizer
+                initial_model = initialized.model
+                initial_bundle_fingerprint = initialized.fingerprint
         else:
             state = _load_state(staging / STATE_FILE)
             tokenizer = load_tokenizer(staging / "tokenizer.json")
+            initial_bundle_fingerprint = _optional_string(state.get("initial_bundle_fingerprint"))
         if model_config.vocab_size != len(tokenizer.vocabulary):
             raise ValueError(
                 "model vocabulary size does not match trained tokenizer: "
@@ -153,6 +167,7 @@ def run_experiment(
             "training_run_id": provenance.training_run_id,
             "dataset_fingerprint": provenance.dataset_fingerprint,
             "tokenizer_fingerprint": tokenizer.fingerprint,
+            "initial_bundle_fingerprint": initial_bundle_fingerprint,
             "config_sha256": config_checksums,
         }
         if new_run:
@@ -173,7 +188,7 @@ def run_experiment(
         tokenized_training = tokenize_dataset(training_dataset, tokenizer)
         tokenized_validation = tokenize_dataset(validation_dataset, tokenizer)
         seed_training(training_config.seed)
-        model = GPTDecoder(model_config)
+        model = initial_model if initial_model is not None else GPTDecoder(model_config)
         trainer = Trainer(model, training_config, device=device)
         if resume is not None:
             checkpoint = _validated_resume_checkpoint(staging, resume)
@@ -339,6 +354,7 @@ def run_experiment(
                     "bundle_fingerprint": result.bundle_fingerprint,
                     "dataset_fingerprint": result.dataset_fingerprint,
                     "tokenizer_fingerprint": result.tokenizer_fingerprint,
+                    "initial_bundle_fingerprint": initial_bundle_fingerprint,
                     "training_steps": result.training_steps,
                     "best_checkpoint": best_checkpoint,
                     "best_validation_loss": best_loss,
@@ -533,14 +549,17 @@ def _load_state(path: Path) -> dict[str, object]:
         "training_run_id",
         "dataset_fingerprint",
         "tokenizer_fingerprint",
+        "initial_bundle_fingerprint",
         "config_sha256",
         "status",
         "last_step",
         "best_validation_loss",
         "best_checkpoint",
     }
-    if not isinstance(value, dict) or set(value) != fields:
+    legacy_fields = fields - {"initial_bundle_fingerprint"}
+    if not isinstance(value, dict) or (set(value) != fields and set(value) != legacy_fields):
         raise ValueError("experiment state fields are invalid")
+    value.setdefault("initial_bundle_fingerprint", None)
     if value["version"] != RUN_STATE_VERSION:
         raise ValueError("unsupported experiment state version")
     if value["status"] not in {"running", "interrupted", "failed"}:
@@ -569,6 +588,7 @@ def _load_state(path: Path) -> dict[str, object]:
         raise ValueError("experiment state configuration checksums are invalid")
     _optional_number(value["best_validation_loss"])
     _optional_string(value["best_checkpoint"])
+    _optional_string(value["initial_bundle_fingerprint"])
     return value
 
 
@@ -631,6 +651,7 @@ def main() -> None:
     parser.add_argument("--training-run-id", required=True)
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--resume", type=Path)
+    parser.add_argument("--init-bundle", type=Path)
     arguments = parser.parse_args()
     result = run_experiment(
         dataset_config_path=arguments.dataset_config,
@@ -644,6 +665,7 @@ def main() -> None:
         training_run_id=arguments.training_run_id,
         device=arguments.device,
         resume=arguments.resume,
+        init_bundle=arguments.init_bundle,
     )
     print(
         json.dumps(

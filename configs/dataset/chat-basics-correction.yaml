@@ -1,0 +1,26 @@
+environment: development
+
+paths:
+  data: ../../data
+  cache: ../../artifacts/cache
+  artifacts: ../../artifacts
+
+dataset:
+  name: chat-basics-correction
+  version: 1.0.0
+  license: MIT
+  created_at: "2026-07-22T00:00:00+06:00"
+  description: Focused everyday English conversation correction set.
+  sources:
+    - path: ../../data/openassistant2-english/basics.jsonl
+      format: jsonl
+      split: train
+      language: en
+      license: MIT
+      text_field: text
+    - path: ../../data/openassistant2-english/basics-validation.jsonl
+      format: jsonl
+      split: validation
+      language: en
+      license: MIT
+      text_field: text

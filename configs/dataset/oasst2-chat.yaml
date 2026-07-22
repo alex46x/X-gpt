@@ -1,0 +1,32 @@
+environment: development
+
+paths:
+  data: ../../data
+  cache: ../../artifacts/cache
+  artifacts: ../../artifacts
+
+dataset:
+  name: oasst2-chat
+  version: 1.0.0
+  license: Apache-2.0 AND MIT
+  created_at: "2026-07-22T00:00:00+06:00"
+  description: Filtered OASST2 English conversations with a small everyday-chat anchor set.
+  sources:
+    - path: ../../data/openassistant2-english/train.jsonl
+      format: jsonl
+      split: train
+      language: en
+      license: Apache-2.0
+      text_field: text
+    - path: ../../data/openassistant2-english/basics.jsonl
+      format: jsonl
+      split: train
+      language: en
+      license: MIT
+      text_field: text
+    - path: ../../data/openassistant2-english/validation.jsonl
+      format: jsonl
+      split: validation
+      language: en
+      license: Apache-2.0
+      text_field: text

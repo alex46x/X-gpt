@@ -67,3 +67,15 @@ def test_conversation_record_rejects_non_english_prompts() -> None:
         )
         is None
     )
+
+
+def test_training_limit_and_chat_basics_are_deterministic() -> None:
+    script = load_script()
+    records = [{"source_row": row} for row in range(10)]
+
+    assert script._limit_records(records, 4, 1337) == script._limit_records(records, 4, 1337)
+    assert len(script._limit_records(records, 4, 1337)) == 4
+    basics = script._basic_records()
+    assert len(basics) == 76
+    assert basics[0]["text"].startswith("<|user|>\nHi\n<|assistant|>\n")
+    assert len(script._basic_validation_records()) == 8

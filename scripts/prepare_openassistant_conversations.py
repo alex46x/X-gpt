@@ -1,4 +1,4 @@
-"""Materialize a pinned English subset of OpenAssistant OASST1."""
+"""Materialize a pinned English subset of an OpenAssistant release."""
 
 import argparse
 import gzip
@@ -13,49 +13,73 @@ from pathlib import Path
 from project_genesis.chat import Conversation, Message, Role, format_prompt
 
 ROOT = Path(__file__).resolve().parents[1]
-DATASET = "OpenAssistant/oasst1"
-SOURCE_REVISION = "fdf72ae0827c1cda404aff25b6603abec9e3399b"
-SOURCE_URL = (
-    "https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/"
-    f"{SOURCE_REVISION}/2023-04-12_oasst_ready.trees.jsonl.gz"
-)
-SOURCE_SIZE = 34_145_252
-SOURCE_SHA256 = "2a9a8fd343e9b28e04a895a669d3253f82d93e9c174d440199ae19d5fafbdff7"
+SOURCES = {
+    "oasst1": {
+        "dataset": "OpenAssistant/oasst1",
+        "revision": "fdf72ae0827c1cda404aff25b6603abec9e3399b",
+        "filename": "2023-04-12_oasst_ready.trees.jsonl.gz",
+        "size": 34_145_252,
+        "sha256": "2a9a8fd343e9b28e04a895a669d3253f82d93e9c174d440199ae19d5fafbdff7",
+        "output": "openassistant-english",
+    },
+    "oasst2": {
+        "dataset": "OpenAssistant/oasst2",
+        "revision": "179dd21fc55192153d94adb0e0ce8f69e222bf75",
+        "filename": "2023-11-05_oasst2_ready.trees.jsonl.gz",
+        "size": 54_370_156,
+        "sha256": "7a886a16ccfc1173c4f00a6897523e3c95b2785a86ee44a18a98f4f2807ee29b",
+        "output": "openassistant2-english",
+    },
+}
 
 
 def main() -> None:
     """Download, validate, format, and split English conversation pairs."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=ROOT / "data/openassistant-english",
-    )
+    parser.add_argument("--release", choices=tuple(SOURCES), default="oasst1")
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--validation-examples", type=int, default=300)
+    parser.add_argument("--training-examples", type=int)
     parser.add_argument("--seed", type=int, default=1337)
     args = parser.parse_args()
     if args.validation_examples < 1:
         parser.error("validation-examples must be positive")
+    if args.training_examples is not None and args.training_examples < 1:
+        parser.error("training-examples must be positive")
 
-    output = args.output.expanduser().resolve()
+    selected = SOURCES[args.release]
+    dataset = str(selected["dataset"])
+    revision = str(selected["revision"])
+    filename = str(selected["filename"])
+    source_size = selected["size"]
+    assert isinstance(source_size, int)
+    source_url = f"https://huggingface.co/datasets/{dataset}/resolve/{revision}/{filename}"
+    output = (args.output or ROOT / f"data/{selected['output']}").expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
-    source = output / "oasst1-ready.trees.jsonl.gz"
-    _download(source)
+    source = output / filename
+    _download(source, source_url, source_size, str(selected["sha256"]))
     records = _load_records(source)
     train, validation = _split(records, args.validation_examples, args.seed)
+    train = _limit_records(train, args.training_examples, args.seed)
     splits = {"train": train, "validation": validation}
     for name, values in splits.items():
         _write_jsonl(output / f"{name}.jsonl", values)
         print(f"{name}: {len(values):,} examples")
+    basics = _basic_records() if args.release == "oasst2" else []
+    basic_validation = _basic_validation_records() if basics else []
+    if basics:
+        _write_jsonl(output / "basics.jsonl", basics)
+        _write_jsonl(output / "basics-validation.jsonl", basic_validation)
+        print(f"basics: {len(basics):,} examples")
 
     _write_text(
         output / "manifest.json",
         json.dumps(
             {
-                "dataset": DATASET,
-                "source": SOURCE_URL,
-                "source_revision": SOURCE_REVISION,
-                "source_sha256": SOURCE_SHA256,
+                "dataset": dataset,
+                "source": source_url,
+                "source_revision": revision,
+                "source_sha256": selected["sha256"],
                 "license": "Apache-2.0",
                 "seed": args.seed,
                 "filters": {
@@ -64,6 +88,17 @@ def main() -> None:
                     "response_max_characters": 3_000,
                     "reply_selection": "lowest rank, then message ID",
                 },
+                "chat_basics": (
+                    {
+                        "license": "MIT",
+                        "train_examples": len(basics),
+                        "train_sha256": _sha256(output / "basics.jsonl"),
+                        "validation_examples": len(basic_validation),
+                        "validation_sha256": _sha256(output / "basics-validation.jsonl"),
+                    }
+                    if basics
+                    else None
+                ),
                 "splits": {
                     name: {
                         "examples": len(values),
@@ -79,9 +114,9 @@ def main() -> None:
     )
 
 
-def _download(destination: Path) -> None:
+def _download(destination: Path, url: str, size: int, sha256: str) -> None:
     if destination.exists():
-        if destination.stat().st_size == SOURCE_SIZE and _sha256(destination) == SOURCE_SHA256:
+        if destination.stat().st_size == size and _sha256(destination) == sha256:
             print(f"source: verified {destination}")
             return
         raise RuntimeError(f"existing source failed integrity verification: {destination}")
@@ -89,7 +124,7 @@ def _download(destination: Path) -> None:
     temporary = destination.with_suffix(".gz.part")
     try:
         request = urllib.request.Request(
-            SOURCE_URL,
+            url,
             headers={"User-Agent": "project-genesis/0.1"},
         )
         with urllib.request.urlopen(request, timeout=120) as response, temporary.open("wb") as file:
@@ -98,7 +133,7 @@ def _download(destination: Path) -> None:
     except (OSError, TimeoutError, urllib.error.URLError) as error:
         temporary.unlink(missing_ok=True)
         raise RuntimeError("unable to download the OpenAssistant dataset") from error
-    if temporary.stat().st_size != SOURCE_SIZE or _sha256(temporary) != SOURCE_SHA256:
+    if temporary.stat().st_size != size or _sha256(temporary) != sha256:
         temporary.unlink()
         raise RuntimeError("downloaded source failed integrity verification")
     os.replace(temporary, destination)
@@ -191,6 +226,109 @@ def _split(
     train = [record for index, record in enumerate(records) if index not in validation_indices]
     validation = [record for index, record in enumerate(records) if index in validation_indices]
     return train, validation
+
+
+def _limit_records(
+    records: list[dict[str, object]],
+    limit: int | None,
+    seed: int,
+) -> list[dict[str, object]]:
+    if limit is None or limit >= len(records):
+        return records
+    indices = list(range(len(records)))
+    random.Random(seed).shuffle(indices)
+    selected = set(indices[:limit])
+    return [record for index, record in enumerate(records) if index in selected]
+
+
+def _basic_records() -> list[dict[str, object]]:
+    groups = (
+        (
+            ("Hi", "Hello", "Hello there", "Hey", "Hi there", "Good morning", "Good evening"),
+            (
+                "Hello! How can I help you today?",
+                "Hi! What can I help you with?",
+                "Hello! It is nice to meet you.",
+                "Hi there! How may I assist you?",
+            ),
+        ),
+        (
+            ("How are you?", "How are you doing?", "Are you well?", "How is it going?"),
+            (
+                "I am doing well, thank you! How are you?",
+                "I am fine, thank you. How can I help you today?",
+                "I am ready to help. How are you doing?",
+            ),
+        ),
+        (
+            ("What is your name?", "Who are you?", "Can you introduce yourself?"),
+            (
+                "I am Project Genesis, a small locally trained AI assistant.",
+                "My name is Project Genesis. How can I help you?",
+            ),
+        ),
+        (
+            ("Can you help me?", "I need help", "Could you assist me?", "Please help me"),
+            (
+                "Of course. Tell me what you need help with.",
+                "Yes, I will do my best to help. What would you like to know?",
+                "Certainly. Please describe the problem.",
+            ),
+        ),
+        (
+            ("Thank you", "Thanks", "Thank you for your help"),
+            ("You are welcome!", "Happy to help!", "You are very welcome."),
+        ),
+        (
+            ("Goodbye", "Bye", "See you later"),
+            ("Goodbye!", "See you later!", "Take care!"),
+        ),
+    )
+    records: list[dict[str, object]] = []
+    for prompts, responses in groups:
+        for prompt in prompts:
+            for response in responses:
+                records.append(
+                    {
+                        "text": format_prompt(
+                            Conversation(
+                                (
+                                    Message(Role.USER, prompt),
+                                    Message(Role.ASSISTANT, response),
+                                )
+                            )
+                        ),
+                        "category": "chat_basics",
+                    }
+                )
+    return records
+
+
+def _basic_validation_records() -> list[dict[str, object]]:
+    pairs = (
+        ("Hi!", "Hello! How can I help you today?"),
+        ("Hey there!", "Hi there! What can I help you with?"),
+        ("How have you been?", "I am doing well, thank you! How are you?"),
+        ("How do you feel today?", "I am fine, thank you. How can I help you today?"),
+        ("Tell me your name", "My name is Project Genesis. How can I help you?"),
+        ("Would you help me?", "Of course. Tell me what you need help with."),
+        ("Many thanks", "You are very welcome."),
+        ("See you soon", "Take care!"),
+    )
+    return [
+        {
+            "text": format_prompt(
+                Conversation(
+                    (
+                        Message(Role.USER, prompt),
+                        Message(Role.ASSISTANT, response),
+                    )
+                )
+            ),
+            "category": "chat_basics_validation",
+        }
+        for prompt, response in pairs
+    ]
 
 
 def _write_jsonl(path: Path, records: list[dict[str, object]]) -> None:

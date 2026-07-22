@@ -1,0 +1,26 @@
+environment: development
+
+paths:
+  data: ../../data
+  cache: ../../artifacts/cache
+  artifacts: ../../artifacts
+
+dataset:
+  name: tinystories-10m
+  version: 1.0.0
+  license: CDLA-Sharing-1.0
+  created_at: "2026-07-21T00:00:00+06:00"
+  description: Deterministic 10-million-word subset of TinyStories V2 GPT-4 English stories.
+  sources:
+    - path: ../../data/tinystories-10m/train.jsonl
+      format: jsonl
+      split: train
+      language: en
+      license: CDLA-Sharing-1.0
+      text_field: text
+    - path: ../../data/tinystories-10m/validation.jsonl
+      format: jsonl
+      split: validation
+      language: en
+      license: CDLA-Sharing-1.0
+      text_field: text
