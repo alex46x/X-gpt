@@ -42,7 +42,7 @@ dev = [
   "mypy>=1.18,<2",
   "pytest>=8.4,<10",
   "ruff>=0.14,<0.16",
-  "types-pyyaml>=6.0.12,<7",
+  "types-pyyaml>=6.0.12.20260724,<7",
 ]
 
 [tool.uv.sources]
