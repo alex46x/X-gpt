@@ -138,3 +138,29 @@ The next implementation phase should be selected from actual training inputs and
 hardware facts. Dataset sharding/token caches depend on the chosen corpus and
 scale; CUDA/distributed work depends on the friend's NVIDIA GPU and topology.
 Neither is added speculatively.
+## Continual pretraining checkpoint migration
+
+The trainer additionally supports `init_mode: resume` with `resume_from`. Version-2 checkpoints atomically store model, optimizer, scheduler, scaler, RNG, step, epoch, serialized configuration, tokenizer fingerprint, and run metadata; version-1 checkpoints remain loadable.
+
+Staging artifacts now include `checkpoints/step-XXXXXXXX.pt`, `checkpoints/latest/checkpoint.pt`, and `checkpoints/best/checkpoint.pt` when enabled. `--resume` keeps the existing interrupted-run behavior, while `training.resume_from` starts a new output run from an external checkpoint and its sibling tokenizer.
+
+```yaml
+training:
+  init_mode: resume
+  resume_from: artifacts/runs/phase-a/checkpoint.pt
+  save_checkpoint_every: 500
+  save_latest: true
+  save_best: true
+  output_directory: artifacts/runs/phase-b
+```
+
+Inference bundles now use schema `3.0.0` with `model.safetensors`; schema `2.0.0` bundles using `model.pt` remain loadable. A temporary `model.pt` compatibility copy is emitted for existing tooling and is integrity-checked against the SafeTensors payload.
+## Capability chain
+
+Use `scripts/train_capability_chain.ps1` to continue the existing TinyStories/chat checkpoint through the mixed conversation data and then CodeSearchNet data. The model/tokenizer configuration stays on the 32k chat architecture; the old 512-vocabulary CodeSearchNet bundle is not weight-merged.
+
+```powershell
+pwsh -File scripts/train_capability_chain.ps1 -Device cuda
+```
+
+The final bundle is written to `artifacts/runs/genesis-capabilities-v1/coding/bundle`. Each stage is resumable from its `checkpoint.pt`.

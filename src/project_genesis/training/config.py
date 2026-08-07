@@ -21,9 +21,16 @@ class Precision(StrEnum):
     FLOAT16 = "float16"
 
 
+class InitMode(StrEnum):
+    """Select random initialization or checkpoint continuation."""
+
+    RANDOM = "random"
+    RESUME = "resume"
+
+
 @dataclass(frozen=True, slots=True)
 class TrainingConfig:
-    """Optimization, scheduling, and numerical training policy."""
+    """Optimization, scheduling, checkpoint, and resume policy."""
 
     batch_size: int
     sequence_length: int
@@ -43,9 +50,15 @@ class TrainingConfig:
     evaluation_interval_steps: int
     log_interval_steps: int
     keep_last_checkpoints: int
+    init_mode: InitMode = InitMode.RANDOM
+    resume_from: Path | None = None
+    save_checkpoint_every: int | None = None
+    save_latest: bool = True
+    save_best: bool = True
+    output_directory: Path | None = None
 
     def __post_init__(self) -> None:
-        """Validate training bounds."""
+        """Validate training bounds and checkpoint settings."""
         for name in (
             "batch_size",
             "sequence_length",
@@ -68,13 +81,17 @@ class TrainingConfig:
             raise ValueError("min_learning_rate_ratio must be in (0, 1]")
         if not 0 <= self.beta1 < 1 or not 0 <= self.beta2 < 1:
             raise ValueError("optimizer betas must be in [0, 1)")
+        if self.save_checkpoint_every is not None and self.save_checkpoint_every <= 0:
+            raise ValueError("save_checkpoint_every must be positive")
+        if self.init_mode is InitMode.RESUME and self.resume_from is None:
+            raise ValueError("resume_from is required when init_mode is resume")
 
 
 def load_training_config(
     path: Path,
     overrides: Sequence[str] = (),
 ) -> TrainingConfig:
-    """Load and strictly validate training YAML configuration."""
+    """Load and strictly validate training YAML."""
     root = load_yaml(path, overrides)
     validate_keys(root, required={"training"}, optional=set(), location="root")
     values = require_mapping(root["training"], "training")
@@ -98,14 +115,19 @@ def load_training_config(
         "log_interval_steps",
         "keep_last_checkpoints",
     }
-    validate_keys(values, required=fields, optional=set(), location="training")
+    optional = {
+        "init_mode",
+        "resume_from",
+        "save_checkpoint_every",
+        "save_latest",
+        "save_best",
+        "output_directory",
+    }
+    validate_keys(values, required=fields, optional=optional, location="training")
     try:
         return TrainingConfig(
             batch_size=_integer(values["batch_size"], "training.batch_size"),
-            sequence_length=_integer(
-                values["sequence_length"],
-                "training.sequence_length",
-            ),
+            sequence_length=_integer(values["sequence_length"], "training.sequence_length"),
             learning_rate=_number(values["learning_rate"], "training.learning_rate"),
             weight_decay=_number(values["weight_decay"], "training.weight_decay"),
             beta1=_number(values["beta1"], "training.beta1"),
@@ -114,34 +136,35 @@ def load_training_config(
             warmup_steps=_integer(values["warmup_steps"], "training.warmup_steps"),
             max_steps=_integer(values["max_steps"], "training.max_steps"),
             min_learning_rate_ratio=_number(
-                values["min_learning_rate_ratio"],
-                "training.min_learning_rate_ratio",
+                values["min_learning_rate_ratio"], "training.min_learning_rate_ratio"
             ),
             gradient_accumulation_steps=_integer(
-                values["gradient_accumulation_steps"],
-                "training.gradient_accumulation_steps",
+                values["gradient_accumulation_steps"], "training.gradient_accumulation_steps"
             ),
-            max_gradient_norm=_number(
-                values["max_gradient_norm"],
-                "training.max_gradient_norm",
-            ),
+            max_gradient_norm=_number(values["max_gradient_norm"], "training.max_gradient_norm"),
             precision=Precision(_string(values["precision"], "training.precision")),
             seed=_integer(values["seed"], "training.seed"),
             checkpoint_interval_steps=_integer(
-                values["checkpoint_interval_steps"],
-                "training.checkpoint_interval_steps",
+                values["checkpoint_interval_steps"], "training.checkpoint_interval_steps"
             ),
             evaluation_interval_steps=_integer(
-                values["evaluation_interval_steps"],
-                "training.evaluation_interval_steps",
+                values["evaluation_interval_steps"], "training.evaluation_interval_steps"
             ),
             log_interval_steps=_integer(
-                values["log_interval_steps"],
-                "training.log_interval_steps",
+                values["log_interval_steps"], "training.log_interval_steps"
             ),
             keep_last_checkpoints=_integer(
-                values["keep_last_checkpoints"],
-                "training.keep_last_checkpoints",
+                values["keep_last_checkpoints"], "training.keep_last_checkpoints"
+            ),
+            init_mode=InitMode(_string(values.get("init_mode", "random"), "training.init_mode")),
+            resume_from=_optional_path(values.get("resume_from"), "training.resume_from"),
+            save_checkpoint_every=_optional_integer(
+                values.get("save_checkpoint_every"), "training.save_checkpoint_every"
+            ),
+            save_latest=_boolean(values.get("save_latest", True), "training.save_latest"),
+            save_best=_boolean(values.get("save_best", True), "training.save_best"),
+            output_directory=_optional_path(
+                values.get("output_directory"), "training.output_directory"
             ),
         )
     except ValueError as error:
@@ -154,6 +177,10 @@ def _integer(value: object, location: str) -> int:
     return value
 
 
+def _optional_integer(value: object, location: str) -> int | None:
+    return None if value is None else _integer(value, location)
+
+
 def _number(value: object, location: str) -> float:
     if not isinstance(value, int | float) or isinstance(value, bool):
         raise ConfigurationError(f"{location} must be a number")
@@ -164,3 +191,17 @@ def _string(value: object, location: str) -> str:
     if not isinstance(value, str):
         raise ConfigurationError(f"{location} must be a string")
     return value
+
+
+def _boolean(value: object, location: str) -> bool:
+    if not isinstance(value, bool):
+        raise ConfigurationError(f"{location} must be a boolean")
+    return value
+
+
+def _optional_path(value: object, location: str) -> Path | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ConfigurationError(f"{location} must be a non-empty path")
+    return Path(value)

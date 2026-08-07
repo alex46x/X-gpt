@@ -2,6 +2,7 @@
 
 from project_genesis.training.checkpoint import load_checkpoint, save_checkpoint
 from project_genesis.training.config import (
+    InitMode,
     Precision,
     TrainingConfig,
     load_training_config,
@@ -15,6 +16,7 @@ from project_genesis.training.optimization import create_optimizer, create_sched
 from project_genesis.training.trainer import Trainer, seed_training
 
 __all__ = [
+    "InitMode",
     "Precision",
     "TokenBatch",
     "Trainer",

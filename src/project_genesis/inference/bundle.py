@@ -13,6 +13,7 @@ from pathlib import Path
 
 import torch
 import yaml
+from safetensors.torch import load_file, save_file
 
 from project_genesis.model import GPTDecoder, load_model_config
 from project_genesis.tokenizer import (
@@ -22,9 +23,11 @@ from project_genesis.tokenizer import (
 )
 from project_genesis.utilities import atomic_write_text
 
-BUNDLE_SCHEMA_VERSION = "2.0.0"
+BUNDLE_SCHEMA_VERSION = "3.0.0"
+LEGACY_BUNDLE_SCHEMA_VERSIONS = {"2.0.0"}
 MODEL_CONFIG_FILE = "model.yaml"
-MODEL_WEIGHTS_FILE = "model.pt"
+MODEL_WEIGHTS_FILE = "model.safetensors"
+LEGACY_MODEL_WEIGHTS_FILE = "model.pt"
 TOKENIZER_FILE = "tokenizer.json"
 MANIFEST_FILE = "manifest.json"
 SEMANTIC_VERSION = re.compile(
@@ -88,6 +91,7 @@ def save_bundle(
         atomic_write_text(temporary / MODEL_CONFIG_FILE, model_config)
         save_tokenizer(tokenizer, temporary / TOKENIZER_FILE)
         _save_weights(temporary / MODEL_WEIGHTS_FILE, model)
+        shutil.copyfile(temporary / MODEL_WEIGHTS_FILE, temporary / LEGACY_MODEL_WEIGHTS_FILE)
         manifest = {
             "schema_version": BUNDLE_SCHEMA_VERSION,
             "project_version": version("project-genesis"),
@@ -124,14 +128,23 @@ def load_bundle(
         expected_fingerprint = manifest.pop("bundle_fingerprint")
         if _fingerprint(manifest) != expected_fingerprint:
             raise ValueError("bundle manifest fingerprint does not match")
+        weights_file = _weights_file_for_schema(manifest["schema_version"])
         checksums = {
             MODEL_CONFIG_FILE: manifest["model_config_sha256"],
-            MODEL_WEIGHTS_FILE: manifest["model_weights_sha256"],
+            weights_file: manifest["model_weights_sha256"],
             TOKENIZER_FILE: manifest["tokenizer_sha256"],
         }
         for filename, expected in checksums.items():
             if _sha256(root / filename) != expected:
                 raise ValueError(f"bundle file checksum does not match: {filename}")
+
+        legacy_weights = root / LEGACY_MODEL_WEIGHTS_FILE
+        if (
+            manifest["schema_version"] == BUNDLE_SCHEMA_VERSION
+            and legacy_weights.is_file()
+            and _sha256(legacy_weights) != _sha256(root / MODEL_WEIGHTS_FILE)
+        ):
+            raise ValueError("bundle legacy weights checksum does not match")
 
         config = load_model_config(root / MODEL_CONFIG_FILE)
         tokenizer = load_tokenizer(root / TOKENIZER_FILE)
@@ -146,11 +159,7 @@ def load_bundle(
                 f"with runtime {runtime_version}"
             )
         model = GPTDecoder(config).to(device)
-        state = torch.load(
-            root / MODEL_WEIGHTS_FILE,
-            map_location=device,
-            weights_only=True,
-        )
+        state = load_file(root / weights_file, device=str(device))
         model.load_state_dict(state)
         model.eval()
         return InferenceBundle(
@@ -178,10 +187,11 @@ def load_bundle(
 
 
 def _save_weights(path: Path, model: GPTDecoder) -> None:
-    with path.open("wb") as stream:
-        torch.save(model.state_dict(), stream)
-        stream.flush()
-        os.fsync(stream.fileno())
+    save_file(
+        {name: tensor.detach().cpu() for name, tensor in model.state_dict().items()},
+        str(path),
+        metadata={"format": "pt-genesis"},
+    )
 
 
 def _load_manifest(path: Path) -> dict[str, str]:
@@ -204,9 +214,15 @@ def _load_manifest(path: Path) -> dict[str, str]:
         or not all(isinstance(value, str) and value for value in loaded.values())
     ):
         raise ValueError("bundle manifest fields are invalid")
-    if loaded["schema_version"] != BUNDLE_SCHEMA_VERSION:
+    if loaded["schema_version"] not in LEGACY_BUNDLE_SCHEMA_VERSIONS | {BUNDLE_SCHEMA_VERSION}:
         raise ValueError("unsupported bundle schema version")
     return loaded
+
+
+def _weights_file_for_schema(schema_version: str) -> str:
+    return (
+        MODEL_WEIGHTS_FILE if schema_version == BUNDLE_SCHEMA_VERSION else LEGACY_MODEL_WEIGHTS_FILE
+    )
 
 
 def _fingerprint(manifest: dict[str, str]) -> str:

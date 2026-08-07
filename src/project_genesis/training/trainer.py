@@ -37,6 +37,7 @@ class Trainer:
         )
         self.step = 0
         self.microbatches_seen = 0
+        self.epoch = 0
 
     def train_step(self, microbatches: Sequence[TokenBatch]) -> float:
         """Run one optimizer step and return the mean unscaled loss."""

@@ -11,6 +11,7 @@ from dataclasses import asdict, dataclass
 from itertools import islice
 from pathlib import Path
 from types import FrameType
+from typing import cast
 
 import torch
 
@@ -39,6 +40,7 @@ from project_genesis.tokenizer import (
 )
 from project_genesis.training import (
     Trainer,
+    TrainingConfig,
     iter_shuffled_token_batches,
     iter_token_batches,
     load_checkpoint,
@@ -79,10 +81,11 @@ def run_experiment(
     training_run_id: str,
     device: str | torch.device = "cpu",
     resume: Path | None = None,
+    resume_from: Path | None = None,
     init_bundle: Path | None = None,
 ) -> ExperimentResult:
     """Train, evaluate, and atomically publish one recoverable local experiment."""
-    if resume is not None and init_bundle is not None:
+    if (resume is not None or resume_from is not None) and init_bundle is not None:
         raise ValueError("init-bundle cannot be combined with resume")
     destination = output.expanduser().resolve()
     staging = destination.parent / f".{destination.name}.in-progress"
@@ -102,6 +105,9 @@ def run_experiment(
     model_config = load_model_config(model_config_path)
     training_config = load_training_config(training_config_path)
     evaluation_config = load_evaluation_config(evaluation_config_path)
+    checkpoint_request = resume or resume_from or training_config.resume_from
+    if training_config.init_mode.value == "resume" and checkpoint_request is None:
+        raise ValueError("resume init_mode requires --resume or resume_from")
     config_paths = {
         "dataset": dataset_config_path,
         "preprocessing": preprocessing_config_path,
@@ -141,7 +147,9 @@ def run_experiment(
         validation_dataset = _split(processed.dataset, DatasetSplit.VALIDATION)
 
         if new_run:
-            if init_bundle is None:
+            if checkpoint_request is not None:
+                tokenizer = load_tokenizer(_tokenizer_for_checkpoint(checkpoint_request))
+            elif init_bundle is None:
                 tokenizer = train_tokenizer(training_dataset, tokenizer_config).tokenizer
             else:
                 initialized = load_bundle(init_bundle)
@@ -187,13 +195,34 @@ def run_experiment(
 
         tokenized_training = tokenize_dataset(training_dataset, tokenizer)
         tokenized_validation = tokenize_dataset(validation_dataset, tokenizer)
+        epoch_batches = max(
+            1,
+            sum(
+                1
+                for _ in iter_token_batches(
+                    tokenized_training,
+                    batch_size=training_config.batch_size,
+                    sequence_length=training_config.sequence_length,
+                    separator_token_id=tokenizer.vocabulary.eos_id,
+                    drop_last=False,
+                )
+            ),
+        )
         seed_training(training_config.seed)
         model = initial_model if initial_model is not None else GPTDecoder(model_config)
         trainer = Trainer(model, training_config, device=device)
-        if resume is not None:
-            checkpoint = _validated_resume_checkpoint(staging, resume)
-            load_checkpoint(checkpoint, trainer)
-            _truncate_metrics(staging / METRICS_FILE, trainer.step)
+        if checkpoint_request is not None:
+            checkpoint = (
+                _validated_resume_checkpoint(staging, checkpoint_request)
+                if resume is not None
+                else checkpoint_request.expanduser().resolve()
+            )
+            metadata = load_checkpoint(checkpoint, trainer)
+            checkpoint_tokenizer = metadata.get("tokenizer_fingerprint")
+            if checkpoint_tokenizer not in (None, tokenizer.fingerprint):
+                raise ValueError("checkpoint tokenizer fingerprint does not match")
+            if resume is not None:
+                _truncate_metrics(staging / METRICS_FILE, trainer.step)
 
         # ponytail: exact replay avoids sampler state; store epoch offsets only if
         # measured resume startup makes replay materially expensive.
@@ -226,6 +255,7 @@ def run_experiment(
                 )
                 if trainer.step == previous_step:
                     continue
+                trainer.epoch = trainer.microbatches_seen // epoch_batches
                 if trainer.step % training_config.log_interval_steps == 0:
                     _append_metric(
                         staging / METRICS_FILE,
@@ -238,7 +268,11 @@ def run_experiment(
                     )
 
                 evaluation_due = trainer.step % training_config.evaluation_interval_steps == 0
-                checkpoint_due = trainer.step % training_config.checkpoint_interval_steps == 0
+                checkpoint_every = (
+                    training_config.save_checkpoint_every
+                    or training_config.checkpoint_interval_steps
+                )
+                checkpoint_due = trainer.step % checkpoint_every == 0
                 if evaluation_due:
                     last_evaluation = _evaluate(
                         model,
@@ -258,7 +292,15 @@ def run_experiment(
                         },
                     )
                 if checkpoint_due or evaluation_due:
-                    checkpoint_path = _save_step_checkpoint(staging, trainer)
+                    checkpoint_path = _save_step_checkpoint(
+                        staging,
+                        trainer,
+                        tokenizer_fingerprint=tokenizer.fingerprint,
+                        metadata={
+                            "source_revision": source_revision,
+                            "training_run_id": training_run_id,
+                        },
+                    )
                     if (
                         last_evaluation is not None
                         and last_evaluation_step == trainer.step
@@ -266,7 +308,8 @@ def run_experiment(
                     ):
                         best_loss = last_evaluation.loss
                         best_checkpoint = checkpoint_path.relative_to(staging).as_posix()
-                        _write_best(staging, trainer.step, best_loss, best_checkpoint)
+                        if training_config.save_best:
+                            _write_best(staging, trainer.step, best_loss, best_checkpoint)
                     _prune_checkpoints(
                         staging,
                         keep_last=training_config.keep_last_checkpoints,
@@ -281,7 +324,12 @@ def run_experiment(
                     )
                     _write_state(staging, state)
         except KeyboardInterrupt:
-            checkpoint_path = _save_step_checkpoint(staging, trainer)
+            checkpoint_path = _save_step_checkpoint(
+                staging,
+                trainer,
+                tokenizer_fingerprint=tokenizer.fingerprint,
+                metadata={"source_revision": source_revision, "training_run_id": training_run_id},
+            )
             _prune_checkpoints(
                 staging,
                 keep_last=training_config.keep_last_checkpoints,
@@ -320,17 +368,30 @@ def run_experiment(
             )
         if last_evaluation is None:
             raise RuntimeError("final evaluation was not produced")
-        final_step_checkpoint = _save_step_checkpoint(staging, trainer)
+        final_step_checkpoint = _save_step_checkpoint(
+            staging,
+            trainer,
+            tokenizer_fingerprint=tokenizer.fingerprint,
+            metadata={"source_revision": source_revision, "training_run_id": training_run_id},
+        )
         if best_loss is None or last_evaluation.loss < best_loss:
             best_loss = last_evaluation.loss
             best_checkpoint = final_step_checkpoint.relative_to(staging).as_posix()
-            _write_best(staging, trainer.step, best_loss, best_checkpoint)
+            if training_config.save_best:
+                _write_best(staging, trainer.step, best_loss, best_checkpoint)
         _prune_checkpoints(
             staging,
             keep_last=training_config.keep_last_checkpoints,
             best_checkpoint=best_checkpoint,
         )
-        save_checkpoint(staging / "checkpoint.pt", trainer)
+        save_checkpoint(
+            staging / "checkpoint.pt",
+            trainer,
+            epoch=trainer.epoch,
+            configuration=_checkpoint_configuration(training_config),
+            tokenizer_fingerprint=tokenizer.fingerprint,
+            metadata={"source_revision": source_revision, "training_run_id": training_run_id},
+        )
         bundle_fingerprint = save_bundle(
             staging / "bundle",
             model,
@@ -442,10 +503,50 @@ def _evaluate(
     )
 
 
-def _save_step_checkpoint(staging: Path, trainer: Trainer) -> Path:
+def _save_step_checkpoint(
+    staging: Path,
+    trainer: Trainer,
+    *,
+    tokenizer_fingerprint: str,
+    metadata: Mapping[str, object],
+) -> Path:
     path = staging / "checkpoints" / f"step-{trainer.step:08d}.pt"
-    save_checkpoint(path, trainer)
+    save_checkpoint(
+        path,
+        trainer,
+        epoch=trainer.epoch,
+        configuration=_checkpoint_configuration(trainer.config),
+        tokenizer_fingerprint=tokenizer_fingerprint,
+        metadata=metadata,
+    )
+    step_directory = path.parent / f"step-{trainer.step:08d}"
+    _atomic_copy(path, step_directory / "checkpoint.pt")
+    if trainer.config.save_latest:
+        _atomic_copy(path, path.parent / "latest" / "checkpoint.pt")
     return path
+
+
+def _atomic_copy(source: Path, destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_name(f".{destination.name}.tmp")
+    shutil.copyfile(source, temporary)
+    os.replace(temporary, destination)
+
+
+def _checkpoint_configuration(config: TrainingConfig) -> dict[str, object]:
+    return cast(dict[str, object], json.loads(json.dumps(asdict(config), default=str)))
+
+
+def _tokenizer_for_checkpoint(checkpoint: Path) -> Path:
+    path = checkpoint.expanduser().resolve()
+    for candidate in (
+        path.parent / "tokenizer.json",
+        path.parent.parent / "tokenizer.json",
+        path.parent.parent.parent / "tokenizer.json",
+    ):
+        if candidate.is_file():
+            return candidate
+    raise FileNotFoundError(f"tokenizer.json not found beside checkpoint: {path}")
 
 
 def _validated_resume_checkpoint(staging: Path, requested: Path) -> Path:
@@ -511,6 +612,7 @@ def _write_best(staging: Path, step: int, loss: float, checkpoint: str) -> None:
         )
         + "\n",
     )
+    _atomic_copy(staging / checkpoint, staging / "checkpoints" / "best" / "checkpoint.pt")
 
 
 def _state(
@@ -646,13 +748,18 @@ def main() -> None:
         type=Path,
         default="configs/evaluation/default.yaml",
     )
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--source-revision", required=True)
     parser.add_argument("--training-run-id", required=True)
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--resume", type=Path)
+    parser.add_argument("--resume-from", type=Path)
     parser.add_argument("--init-bundle", type=Path)
     arguments = parser.parse_args()
+    configured_output = load_training_config(arguments.training_config).output_directory
+    output = arguments.output or configured_output
+    if output is None:
+        parser.error("--output is required unless training config sets output_directory")
     result = run_experiment(
         dataset_config_path=arguments.dataset_config,
         preprocessing_config_path=arguments.preprocessing_config,
@@ -660,11 +767,12 @@ def main() -> None:
         model_config_path=arguments.model_config,
         training_config_path=arguments.training_config,
         evaluation_config_path=arguments.evaluation_config,
-        output=arguments.output,
+        output=output,
         source_revision=arguments.source_revision,
         training_run_id=arguments.training_run_id,
         device=arguments.device,
         resume=arguments.resume,
+        resume_from=arguments.resume_from,
         init_bundle=arguments.init_bundle,
     )
     print(
