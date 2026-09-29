@@ -1,3 +1,5 @@
+import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -102,6 +104,32 @@ def test_bundle_refuses_to_overwrite_existing_artifacts(tmp_path: Path) -> None:
 
     with pytest.raises(FileExistsError):
         save_bundle(destination, _model(), _tokenizer(), provenance=PROVENANCE)
+
+
+def test_legacy_bundle_loads_pytorch_weights(tmp_path: Path) -> None:
+    destination = tmp_path / "bundle"
+    model = _model()
+    save_bundle(destination, model, _tokenizer(), provenance=PROVENANCE)
+    torch.save(model.state_dict(), destination / "model.pt")
+
+    manifest_path = destination / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["schema_version"] = "2.0.0"
+    with (destination / "model.pt").open("rb") as stream:
+        manifest["model_weights_sha256"] = hashlib.file_digest(stream, "sha256").hexdigest()
+    manifest.pop("bundle_fingerprint")
+    manifest["bundle_fingerprint"] = hashlib.sha256(
+        json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    manifest_path.write_text(
+        json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+
+    loaded = load_bundle(destination)
+
+    for expected, actual in zip(model.parameters(), loaded.model.parameters(), strict=True):
+        torch.testing.assert_close(expected, actual)
 
 
 def test_modern_bundle_round_trip_preserves_architecture(tmp_path: Path) -> None:

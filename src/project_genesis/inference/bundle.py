@@ -159,7 +159,14 @@ def load_bundle(
                 f"with runtime {runtime_version}"
             )
         model = GPTDecoder(config).to(device)
-        state = load_file(root / weights_file, device=str(device))
+        if manifest["schema_version"] == "2.0.0":
+            state = torch.load(
+                root / weights_file,
+                map_location=device,
+                weights_only=True,
+            )
+        else:
+            state = load_file(root / weights_file, device=str(device))
         model.load_state_dict(state)
         model.eval()
         return InferenceBundle(
@@ -188,7 +195,7 @@ def load_bundle(
 
 def _save_weights(path: Path, model: GPTDecoder) -> None:
     save_file(
-        {name: tensor.detach().cpu() for name, tensor in model.state_dict().items()},
+        {name: tensor.detach().cpu().clone() for name, tensor in model.state_dict().items()},
         str(path),
         metadata={"format": "pt-genesis"},
     )
